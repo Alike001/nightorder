@@ -12,6 +12,7 @@
     "dev": "pnpm --filter @nightorder/worker dev",
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts,json,yaml,yml}\"",
     "lint": "eslint .",
+    "proof:runs": "pnpm --filter @nightorder/worker exec tsx ../../scripts/run-e2e-proofs.ts && pnpm exec prettier --write \"evidence/runs/*.json\"",
     "test": "vitest run",
     "typecheck": "pnpm --filter @nightorder/domain build && pnpm -r --if-present typecheck"
   },
