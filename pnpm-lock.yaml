@@ -32,6 +32,10 @@ importers:
   apps/web: {}
 
   apps/worker:
+    dependencies:
+      '@nightorder/quotes':
+        specifier: workspace:*
+        version: link:../../packages/quotes
     devDependencies:
       tsx:
         specifier: ^4.20.6

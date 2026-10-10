@@ -9,6 +9,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@nightorder/quotes": "workspace:*"
+  },
   "devDependencies": {
     "tsx": "^4.20.6"
   }
