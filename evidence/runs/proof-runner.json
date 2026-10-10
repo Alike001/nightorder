@@ -1,5 +1,5 @@
 {
-  "generatedAtUtc": "2026-10-10T12:48:23.554Z",
+  "generatedAtUtc": "2026-10-10T12:49:37.093Z",
   "runs": ["run-a.json", "run-b.json", "run-c.json"],
   "result": "PASS",
   "scope": "local PAPER component integration using deterministic fixtures",
