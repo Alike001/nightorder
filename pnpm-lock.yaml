@@ -59,7 +59,27 @@ importers:
 
   packages/quotes: {}
 
-  packages/telegram: {}
+  packages/telegram:
+    dependencies:
+      '@nightorder/domain':
+        specifier: workspace:*
+        version: link:../domain
+      openai:
+        specifier: ^7.32.0
+        version: 7.32.0(zod@4.6.5)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.18.12
+        version: 22.20.5
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
 
   packages/tracing: {}
 
@@ -1285,6 +1305,33 @@ packages:
         integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==,
       }
 
+  openai@7.32.0:
+    resolution:
+      {
+        integrity: sha512-avqxu/jl1gsVBCBgFNPr9sTh+wZppQphuhhFy1zEvAJxEaJ4t0ery6hZdOT9kws/EcNTARoQcZs2IT3bliE1SA==,
+      }
+    engines: { node: '>=22.0.0' }
+    peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
+      undici: '>=5 <9'
+      ws: ^8.21.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
+      undici:
+        optional: true
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   optionator@0.9.4:
     resolution:
       {
@@ -2329,6 +2376,10 @@ snapshots:
   nanoid@3.3.20: {}
 
   natural-compare@1.4.0: {}
+
+  openai@7.32.0(zod@4.6.5):
+    optionalDependencies:
+      zod: 4.6.5
 
   optionator@0.9.4:
     dependencies:
