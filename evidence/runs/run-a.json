@@ -1,0 +1,20 @@
+{
+  "generatedAtUtc": "2026-10-10T12:48:23.534Z",
+  "scenario": "AUTHORIZED_PAPER_ORDER_READBACK",
+  "mode": "PAPER",
+  "result": "PASS",
+  "submitStatus": "NEW",
+  "verification": {
+    "result": "VERIFIED",
+    "checks": {
+      "orderMatchesClientId": true,
+      "attemptMatchesOrder": true,
+      "exactlyOneOrder": true,
+      "acceptedIsNotFilled": true
+    },
+    "evidenceIds": ["c0449368-0116-4c3c-bfeb-424abae1b927"]
+  },
+  "actualOrderCount": 1,
+  "model": "not used for deterministic execution",
+  "neatlogs": "not connected in this proof runner"
+}

@@ -1,0 +1,15 @@
+{
+  "generatedAtUtc": "2026-10-10T12:48:23.542Z",
+  "scenario": "UNSAFE_LIMIT_REFUSAL",
+  "mode": "PAPER",
+  "result": "PASS",
+  "refusalCode": "REJECTED",
+  "checks": {
+    "guardRejected": true,
+    "noOrderWritten": true,
+    "noAttemptWritten": true,
+    "balanceUnchanged": true
+  },
+  "actualOrderCount": 0,
+  "neatlogs": "not connected in this proof runner"
+}

@@ -1,0 +1,45 @@
+{
+  "generatedAtUtc": "2026-10-10T12:48:23.553Z",
+  "scenario": "COMMIT_THEN_TIMEOUT_RECOVERY",
+  "mode": "PAPER",
+  "result": "PASS",
+  "injectedFailure": "TIMEOUT after SQLite commit; deterministic test fixture",
+  "model": "scripted deterministic fixture; not a live model call",
+  "selectedDiagnostics": ["read_attempt_journal", "query_order_by_client_id"],
+  "recovery": {
+    "result": "VERIFIED",
+    "needsHuman": false,
+    "escalationPersisted": false,
+    "tracingHealthy": true,
+    "diagnosticTools": ["read_attempt_journal", "query_order_by_client_id"],
+    "checks": {
+      "orderMatchesClientId": true,
+      "attemptMatchesOrder": true,
+      "exactlyOneOrder": true,
+      "acceptedIsNotFilled": true
+    },
+    "evidenceIds": ["f645de46-d88a-4577-9510-0ba4af4a3022"]
+  },
+  "independentReadback": {
+    "result": "VERIFIED",
+    "checks": {
+      "orderMatchesClientId": true,
+      "attemptMatchesOrder": true,
+      "exactlyOneOrder": true,
+      "acceptedIsNotFilled": true
+    },
+    "evidenceIds": ["f645de46-d88a-4577-9510-0ba4af4a3022"]
+  },
+  "independentVerifier": "local journal readback; the standalone verifier package is not integrated",
+  "actualOrderCount": 1,
+  "inMemoryTraceEventNames": [
+    "agent.recovery.started",
+    "agent.tool.selected",
+    "agent.tool.completed",
+    "agent.tool.selected",
+    "agent.tool.completed",
+    "agent.recovery.verified",
+    "agent.recovery.finished"
+  ],
+  "neatlogs": "not connected; in-memory events are not Neatlogs evidence"
+}
