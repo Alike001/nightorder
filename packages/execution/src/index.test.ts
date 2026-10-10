@@ -242,6 +242,23 @@ describe('SQLite paper execution adapter', () => {
     unapproved.adapter.close();
   });
 
+  it('rejects approval and expiry timestamps that are not valid UTC ISO values', async () => {
+    for (const changedPlan of [
+      { ...planFixture, expiresAtUtc: '2026-10-10T13:00:00+00:00' },
+      { ...planFixture, approvedAtUtc: '2026-10-10T11:59:00-05:00' },
+      { ...planFixture, expiresAtUtc: '2026-02-30T13:00:00.000Z' },
+    ]) {
+      const { adapter } = setup(changedPlan);
+      expect(await adapter.submitApprovedOrder(requestFixture)).toMatchObject({
+        ok: false,
+        code: 'REJECTED',
+        retrySafe: false,
+      });
+      expect(adapter.countOrdersForPlan('plan-1')).toBe(0);
+      adapter.close();
+    }
+  });
+
   it('cancels a resting order and releases its reserved balance', async () => {
     const { adapter } = setup();
     const submitted = await adapter.submitApprovedOrder(requestFixture);
