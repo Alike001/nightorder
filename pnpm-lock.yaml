@@ -37,7 +37,11 @@ importers:
         specifier: ^4.20.6
         version: 4.23.15
 
-  packages/agent: {}
+  packages/agent:
+    dependencies:
+      '@nightorder/execution':
+        specifier: workspace:*
+        version: link:../execution
 
   packages/domain: {}
 
