@@ -140,6 +140,41 @@ describe('worker workspace', () => {
     });
   });
 
+  it('expires plans even when the quote provider returns an error', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'nightorder-worker-'));
+    const store = new SqliteArmedPlanStore(
+      join(directory, 'worker.sqlite'),
+      testNow,
+    );
+    try {
+      store.saveArmedPlan(
+        testPlan({
+          id: 'offline-plan',
+          expiresAtUtc: '2026-01-01T00:00:05.000Z',
+        }),
+      );
+      await pollOnce(
+        {
+          currentQuote: async () => ({
+            ok: false,
+            code: 'NETWORK',
+            message: 'offline',
+            retrySafe: true,
+            evidenceId: 'offline',
+          }),
+        },
+        () => undefined,
+        testNow,
+        5_000,
+        store,
+      );
+      expect(store.getState('offline-plan')).toBe('EXPIRED');
+    } finally {
+      store.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('refuses malformed non-UTC approval times and changed duplicate plans', () => {
     withDatabase((databasePath) => {
       const store = new SqliteArmedPlanStore(databasePath, testNow);

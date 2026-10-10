@@ -13,6 +13,10 @@ export async function pollOnce(
   maxAgeMs = 5_000,
   armedPlans?: SqliteArmedPlanStore,
 ): Promise<void> {
+  const expiredPlanIds = armedPlans?.expireDuePlans(now()) ?? [];
+  if (expiredPlanIds.length > 0) {
+    log(`watcher plans expired ids=${expiredPlanIds.join(',')}`);
+  }
   const result = await port.currentQuote('BTCUSDT');
   if (!result.ok) {
     log(

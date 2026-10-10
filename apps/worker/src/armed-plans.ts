@@ -127,7 +127,7 @@ export class SqliteArmedPlanStore {
   }
 
   listArmedPlans(): ArmedTradePlan[] {
-    this.expirePlans();
+    this.expireDuePlans();
     const rows = this.database
       .prepare(
         "SELECT plan_json FROM watcher_plans WHERE state = 'ARMED' ORDER BY plan_id",
@@ -142,7 +142,7 @@ export class SqliteArmedPlanStore {
     maxAgeMs: number,
     now = this.now(),
   ): QuoteEvaluation {
-    const expiredPlanIds = this.expirePlans(now);
+    const expiredPlanIds = this.expireDuePlans(now);
     if (quote.symbol !== 'BTCUSDT') {
       return { fresh: false, expiredPlanIds, triggeredPlanIds: [] };
     }
@@ -179,7 +179,7 @@ export class SqliteArmedPlanStore {
     this.database.close();
   }
 
-  private expirePlans(now = this.now()): string[] {
+  expireDuePlans(now = this.now()): string[] {
     const timestamp = now.toISOString();
     const rows = this.database
       .prepare(
