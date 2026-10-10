@@ -3,6 +3,8 @@ node_modules/
 dist/
 build/
 coverage/
+.turbo/
+.pnpm-store/
 .env
 .env.*
 !.env.example
