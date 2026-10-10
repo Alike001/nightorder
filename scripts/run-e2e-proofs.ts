@@ -116,9 +116,10 @@ async function runAuthorizedOrder(): Promise<void> {
     const verification = verifyJournal(adapter, selectedPlan.id, clientOrderId);
     assert.equal(verification.result, 'VERIFIED');
     writeProof('run-a.json', {
-      scenario: 'AUTHORIZED_PAPER_ORDER_READBACK',
+      scenario: 'PREAPPROVED_FIXTURE_PAPER_ORDER_READBACK',
       mode: 'PAPER',
       result: 'PASS',
+      planSource: 'preapproved test fixture; no Telegram owner confirmation',
       submitStatus: submitted.ok ? submitted.data.status : 'REJECTED',
       verification,
       actualOrderCount: adapter.countOrdersForPlan(selectedPlan.id),
