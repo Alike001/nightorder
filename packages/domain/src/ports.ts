@@ -11,6 +11,7 @@ import type {
   VerificationResult,
   VirtualBalances,
 } from './schemas.js';
+import type { NeedsHumanEscalationRepository } from './escalation.js';
 
 export interface MarketDataPort {
   currentQuote(symbol: Symbol): Promise<ToolResult<MarketQuote>>;
@@ -31,7 +32,7 @@ export interface ExecutionPort {
   ): Promise<ToolResult<CancelRequestResult>>;
 }
 
-export interface PlanRepository {
+export interface PlanRepository extends NeedsHumanEscalationRepository {
   createDraft(plan: TradePlan): Promise<void>;
   approveExact(
     planId: string,

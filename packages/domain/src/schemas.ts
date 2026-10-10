@@ -251,6 +251,9 @@ export const orderReadbackResultSchema = z
 export const cancelRequestResultSchema = z
   .object({ status: z.literal('CANCEL_REQUESTED') })
   .strict();
+export const paperCancelAcknowledgementSchema = z
+  .object({ status: z.literal('CANCELED') })
+  .strict();
 export const evidenceSourceSchema = z.literal('ORIGINAL_PAPER');
 export const orderAttemptSchema = z
   .object({
@@ -345,6 +348,8 @@ export const toolErrorCodeSchema = z.enum([
   'NETWORK',
   'NOT_FOUND',
   'AMBIGUOUS',
+  'STALE_REVISION',
+  'PERSISTENCE_FAILED',
 ]);
 
 export function toolResultSchema<T extends z.ZodType>(dataSchema: T) {
@@ -395,7 +400,6 @@ export const verificationChecksSchema = z.record(
 );
 const evidenceReferencesSchema = z
   .array(stableIdSchema)
-  .min(1, 'At least one evidence reference is required')
   .superRefine((evidenceIds, context) => {
     if (new Set(evidenceIds).size !== evidenceIds.length) {
       context.addIssue({
@@ -414,6 +418,16 @@ export const verificationResultSchema = z
   .strict()
   .superRefine((verification, context) => {
     const allChecksPass = Object.values(verification.checks).every(Boolean);
+    if (
+      verification.result === 'VERIFIED' &&
+      verification.evidenceIds.length === 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['evidenceIds'],
+        message: 'VERIFIED requires at least one evidence reference',
+      });
+    }
     if (verification.result === 'VERIFIED' && !allChecksPass) {
       context.addIssue({
         code: 'custom',
@@ -451,6 +465,9 @@ export type SubmitApprovedOrderInput = z.infer<
 export type OrderStatusResult = z.infer<typeof orderStatusResultSchema>;
 export type OrderReadbackResult = z.infer<typeof orderReadbackResultSchema>;
 export type CancelRequestResult = z.infer<typeof cancelRequestResultSchema>;
+export type PaperCancelAcknowledgement = z.infer<
+  typeof paperCancelAcknowledgementSchema
+>;
 export type EvidenceSource = z.infer<typeof evidenceSourceSchema>;
 export type OrderAttempt = z.infer<typeof orderAttemptSchema>;
 export type ToolErrorCode = z.infer<typeof toolErrorCodeSchema>;
