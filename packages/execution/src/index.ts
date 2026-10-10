@@ -88,6 +88,20 @@ interface Decimal {
 }
 
 const decimalPattern = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
+const utcTimestampPattern =
+  /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/;
+
+function isUtcTimestamp(value: string): boolean {
+  const match = utcTimestampPattern.exec(value);
+  if (!match) return false;
+  const milliseconds = (match[2] ?? '').padEnd(3, '0');
+  const canonical = `${match[1]}.${milliseconds || '000'}Z`;
+  try {
+    return new Date(value).toISOString() === canonical;
+  } catch {
+    return false;
+  }
+}
 
 function parsePositiveDecimal(value: string, name: string): Decimal {
   if (!decimalPattern.test(value)) {
@@ -525,6 +539,8 @@ export class SqlitePaperExecutionAdapter {
       plan.mode !== 'PAPER' ||
       plan.state !== 'SUBMITTING' ||
       !plan.approvedAtUtc ||
+      !isUtcTimestamp(plan.approvedAtUtc) ||
+      !isUtcTimestamp(plan.expiresAtUtc) ||
       !plan.planHash
     ) {
       return error('REJECTED', 'Order does not match an approved PAPER plan.');

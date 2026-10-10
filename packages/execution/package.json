@@ -6,6 +6,6 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run src/index.test.ts"
+    "test": "vitest run --root ../.."
   }
 }
