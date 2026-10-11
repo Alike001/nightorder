@@ -1,3 +1,17 @@
+import type {
+  ExecutionPort,
+  NeedsHumanEscalationRepository,
+  OrderAttempt,
+  PlanRepository,
+  VerificationResult,
+  VerificationPort,
+} from '@nightorder/domain';
+import {
+  verificationCheckSchema,
+  verificationResultSchema,
+  verifyPersistentRecords,
+} from '@nightorder/domain';
+
 export type FailureCode = 'TIMEOUT' | 'NETWORK' | 'AMBIGUOUS';
 export type RecoveryToolName =
   | 'read_attempt_journal'
@@ -12,47 +26,25 @@ export interface RecoveryIncident {
   occurredAtUtc: string;
 }
 
-export interface RecoveryAttempt {
-  id: string;
-  planId: string;
-  operationId: string;
-  clientOrderId: string;
-  requestDigest: string;
-  state: 'PREPARED' | 'SENDING' | 'UNCERTAIN' | 'ACKNOWLEDGED' | 'RECONCILED';
-  venueStatus?:
-    'NEW' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELED' | 'REJECTED' | 'EXPIRED';
-  evidenceSource: 'ORIGINAL_PAPER' | 'BINANCE_TESTNET';
-}
+export type RecoveryAttempt = OrderAttempt;
 
-export interface DiagnosticPlanRepository {
+export interface DiagnosticPlanRepository
+  extends
+    NeedsHumanEscalationRepository,
+    Pick<PlanRepository, 'loadAttempt' | 'recordObservation'> {
   loadAttempt(planId: string): Promise<RecoveryAttempt | null>;
   recordObservation(
     planId: string,
-    event: Record<string, unknown>,
+    event: Readonly<Record<string, unknown>>,
   ): Promise<void>;
-  markNeedsHuman(planId: string, reasonCode: string): Promise<void>;
 }
 
-export interface DiagnosticExecutionPort {
-  findOrderByClientId(clientOrderId: string): Promise<
-    | {
-        ok: true;
-        data: { orderId: string; status: string; filledQuantity: string };
-        evidenceId: string;
-      }
-    | { ok: false; code: string; evidenceId: string }
-  >;
-}
+export type DiagnosticExecutionPort = Pick<
+  ExecutionPort,
+  'findOrderByClientId'
+>;
 
-export interface VerificationResult {
-  result: 'VERIFIED' | 'BLOCKED' | 'UNCERTAIN';
-  checks: Record<string, boolean>;
-  evidenceIds: string[];
-}
-
-export interface IndependentVerificationPort {
-  verify(planId: string): Promise<VerificationResult>;
-}
+export type IndependentVerificationPort = VerificationPort;
 
 export interface RecoveryTraceSink {
   emit(event: {
@@ -86,12 +78,8 @@ function verificationForModel(
 ): Record<string, unknown> {
   return {
     result: verification.result,
-    checks: Object.fromEntries(
-      Object.entries(verification.checks)
-        .slice(0, 24)
-        .map(([name, passed]) => [name.slice(0, 80), passed === true]),
-    ),
-    evidenceCount: Math.min(verification.evidenceIds.length, 1000),
+    checks: verification.checks,
+    evidenceCount: verification.evidenceIds.length,
   };
 }
 
@@ -126,12 +114,12 @@ function safeErrorCode(code: string): string {
 }
 
 export interface RecoveryOutcome {
-  result: 'VERIFIED' | 'BLOCKED' | 'UNCERTAIN';
+  result: VerificationResult['result'];
   needsHuman: boolean;
   escalationPersisted: boolean;
   tracingHealthy: boolean;
   diagnosticTools: RecoveryToolName[];
-  checks: Record<string, boolean>;
+  checks: VerificationResult['checks'];
   evidenceIds: string[];
 }
 
@@ -281,13 +269,20 @@ export class BoundedRecoveryAgent {
 
     let verification: VerificationResult;
     try {
-      verification = await this.verifier.verify(incident.planId);
+      verification = verificationResultSchema.parse(
+        await this.verifier.verify(incident.planId),
+      );
+      const requiredChecks = verificationCheckSchema.options;
+      if (
+        Object.keys(verification.checks).length !== requiredChecks.length ||
+        requiredChecks.some(
+          (check) => !Object.hasOwn(verification.checks, check),
+        )
+      ) {
+        throw new Error('Verifier did not return every domain check');
+      }
     } catch {
-      verification = {
-        result: 'UNCERTAIN',
-        checks: { verifierAvailable: false },
-        evidenceIds: [],
-      };
+      verification = verifyPersistentRecords(undefined);
     }
     await trace('agent.recovery.verified', {
       planId: incident.planId,
@@ -323,9 +318,21 @@ export class BoundedRecoveryAgent {
               ? 'VERIFICATION_BLOCKED'
               : 'RECOVERY_UNCERTAIN';
       let escalationPersisted = false;
+      let escalationEvidenceIds: string[] = [];
       try {
-        await this.repository.markNeedsHuman(incident.planId, reasonCode);
-        escalationPersisted = true;
+        const escalation = await this.repository.markNeedsHuman(
+          incident.planId,
+          reasonCode,
+        );
+        if (escalation.ok) {
+          escalationPersisted = true;
+          escalationEvidenceIds = [escalation.evidenceId];
+        } else {
+          await trace('agent.recovery.escalation_write_failed', {
+            planId: incident.planId,
+            reasonCode: escalation.code,
+          });
+        }
       } catch {
         await trace('agent.recovery.escalation_write_failed', {
           planId: incident.planId,
@@ -361,7 +368,9 @@ export class BoundedRecoveryAgent {
         tracingHealthy,
         diagnosticTools,
         checks: verification.checks,
-        evidenceIds: verification.evidenceIds,
+        evidenceIds: [
+          ...new Set([...verification.evidenceIds, ...escalationEvidenceIds]),
+        ],
       };
     }
 
@@ -373,12 +382,21 @@ export class BoundedRecoveryAgent {
       });
     } catch {
       let escalationPersisted = false;
+      let escalationEvidenceIds: string[] = [];
       try {
-        await this.repository.markNeedsHuman(
+        const escalation = await this.repository.markNeedsHuman(
           incident.planId,
           'OBSERVATION_WRITE_FAILED',
         );
-        escalationPersisted = true;
+        if (escalation.ok) {
+          escalationPersisted = true;
+          escalationEvidenceIds = [escalation.evidenceId];
+        } else {
+          await trace('agent.recovery.escalation_write_failed', {
+            planId: incident.planId,
+            reasonCode: escalation.code,
+          });
+        }
       } catch {
         await trace('agent.recovery.escalation_write_failed', {
           planId: incident.planId,
@@ -392,7 +410,9 @@ export class BoundedRecoveryAgent {
         tracingHealthy,
         diagnosticTools,
         checks: verification.checks,
-        evidenceIds: verification.evidenceIds,
+        evidenceIds: [
+          ...new Set([...verification.evidenceIds, ...escalationEvidenceIds]),
+        ],
       };
     }
     await trace('agent.recovery.finished', {

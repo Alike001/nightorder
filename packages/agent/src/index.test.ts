@@ -3,6 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  hashTradeInstruction,
+  needsHumanEscalationSchema,
+  needsHumanIdempotencyKey,
+  PersistentRecordsVerifierAdapter,
+  type NeedsHumanEscalation,
+  type NeedsHumanReasonCode,
+  type ToolResult,
+  type VerificationPort,
+} from '@nightorder/domain';
+import {
   type ApprovedPaperPlan,
   type PaperExecutionOptions,
   type PaperOrderRequest,
@@ -18,20 +28,27 @@ import {
   type RecoveryIncident,
   type RecoveryToolName,
   type ResponsesRequest,
-  type VerificationResult,
 } from './index.js';
 
-const plan: ApprovedPaperPlan = {
+const instruction = {
   id: 'recovery-plan-1',
+  ownerId: 'recovery-owner-1',
   symbol: 'BTCUSDT',
   side: 'BUY',
   quoteBudgetUsdt: '500',
+  triggerPrice: '59000',
+  triggerOperator: 'ASK_LTE',
   limitPrice: '60000',
   expiresAtUtc: '2026-10-10T13:00:00.000Z',
+  timezone: 'UTC',
   mode: 'PAPER',
-  planHash: 'plan-digest-fixture',
+} as const;
+const plan: ApprovedPaperPlan = {
+  ...instruction,
+  planHash: hashTradeInstruction(instruction),
   approvedAtUtc: '2026-10-10T11:59:00.000Z',
   state: 'SUBMITTING',
+  revision: 2,
 };
 
 const orderRequest: PaperOrderRequest = {
@@ -96,18 +113,25 @@ interface Harness {
       planId: string,
       event: Record<string, unknown>,
     ) => Promise<void>;
-    markNeedsHuman: (planId: string, reasonCode: string) => Promise<void>;
+    markNeedsHuman: (
+      planId: string,
+      reasonCode: NeedsHumanReasonCode,
+    ) => Promise<ToolResult<NeedsHumanEscalation>>;
   };
   traces: Array<{
     name: string;
     attributes: Record<string, string | number | boolean>;
   }>;
-  marked: Array<{ planId: string; reasonCode: string }>;
+  marked: Array<{ planId: string; reasonCode: NeedsHumanReasonCode }>;
   observations: Array<{ planId: string; event: Record<string, unknown> }>;
   close: () => void;
 }
 
-function createHarness(selectedPlan = plan): Harness {
+function createHarness(
+  selectedPlan = plan,
+  authorizationOwnerId = selectedPlan.ownerId,
+  escalationWriteSucceeds = true,
+): Harness {
   const directory = mkdtempSync(join(tmpdir(), 'nightorder-recovery-'));
   directories.push(directory);
   const options: PaperExecutionOptions = {
@@ -119,6 +143,19 @@ function createHarness(selectedPlan = plan): Harness {
     {
       loadPlan: async (planId) =>
         planId === selectedPlan.id ? selectedPlan : null,
+      loadPlanEvidence: async () => ({
+        evidenceId: 'persisted-plan-evidence',
+        data: selectedPlan,
+      }),
+      loadAuthorizationEvidence: async () => ({
+        evidenceId: 'persisted-authorization-evidence',
+        data: {
+          planId: selectedPlan.id,
+          ownerId: authorizationOwnerId,
+          planHash: selectedPlan.planHash,
+          approvedAtUtc: selectedPlan.approvedAtUtc!,
+        },
+      }),
     },
     options,
   );
@@ -132,6 +169,29 @@ function createHarness(selectedPlan = plan): Harness {
     },
     markNeedsHuman: async (planId, reasonCode) => {
       marked.push({ planId, reasonCode });
+      if (!escalationWriteSucceeds) {
+        return {
+          ok: false,
+          code: 'PERSISTENCE_FAILED',
+          message: 'Fixture escalation persistence failed.',
+          retrySafe: false,
+          evidenceId: 'failed-escalation-write',
+        };
+      }
+      return {
+        ok: true,
+        data: needsHumanEscalationSchema.parse({
+          id: 'escalation-row-1',
+          planId,
+          reasonCode,
+          idempotencyKey: needsHumanIdempotencyKey(planId, reasonCode),
+          status: 'OPEN',
+          planStateAtEscalation: selectedPlan.state,
+          planRevisionAtEscalation: selectedPlan.revision,
+          createdAtUtc: '2026-10-10T12:00:01.000Z',
+        }),
+        evidenceId: 'escalation-evidence-1',
+      };
     },
   };
   return {
@@ -144,44 +204,20 @@ function createHarness(selectedPlan = plan): Harness {
   };
 }
 
-function createVerifier(harness: Harness, verification?: VerificationResult) {
-  return {
-    verify: async (planId: string): Promise<VerificationResult> => {
-      if (verification) return verification;
-      const order = harness.adapter.getOrderByClientId(
-        orderRequest.clientOrderId,
-      );
-      const attempt = harness.adapter.getAttemptForPlan(planId);
-      const checks = {
-        attemptExists: attempt !== null,
-        orderReadBack: order !== null,
-        orderMatchesAttempt: Boolean(
-          order && attempt && order.orderId === attempt.orderId,
-        ),
-        oneOrderForPlan: harness.adapter.countOrdersForPlan(planId) === 1,
-        acceptedNotFilled:
-          order?.status === 'NEW' && order.filledQuantity === '0',
-      };
-      return {
-        result: Object.values(checks).every(Boolean) ? 'VERIFIED' : 'UNCERTAIN',
-        checks,
-        evidenceIds: order ? [order.orderId] : [],
-      };
-    },
-  };
+function createVerifier(harness: Harness) {
+  return new PersistentRecordsVerifierAdapter(harness.adapter);
 }
 
 function makeAgent(
   harness: Harness,
   model: DiagnosticModel,
-  verification?: VerificationResult,
   maxDiagnosticCalls = 3,
 ) {
   return new BoundedRecoveryAgent(
     model,
     harness.repository,
     harness.adapter,
-    createVerifier(harness, verification),
+    createVerifier(harness),
     {
       emit: (event) => {
         harness.traces.push(event);
@@ -246,14 +282,7 @@ describe('bounded model-led order recovery', () => {
         'query_order_by_client_id',
         'finish',
       ]);
-      const unresolved: VerificationResult = {
-        result: 'UNCERTAIN',
-        checks: { attemptFound: false, orderFound: false, noDuplicate: true },
-        evidenceIds: [],
-      };
-      const result = await makeAgent(harness, model, unresolved).recover(
-        incident,
-      );
+      const result = await makeAgent(harness, model).recover(incident);
       expect(result).toMatchObject({
         result: 'UNCERTAIN',
         needsHuman: true,
@@ -269,19 +298,59 @@ describe('bounded model-led order recovery', () => {
     }
   });
 
-  it('blocks duplicate evidence and persists a human escalation', async () => {
-    const harness = createHarness();
+  it('does not claim escalation persistence when the durable port rejects the write', async () => {
+    const harness = createHarness(plan, plan.ownerId, false);
     try {
+      const model = new ScriptedModel(['finish']);
+      const result = await makeAgent(harness, model).recover(incident);
+      expect(result).toMatchObject({
+        result: 'UNCERTAIN',
+        needsHuman: true,
+        escalationPersisted: false,
+      });
+      expect(result.evidenceIds).not.toContain('failed-escalation-write');
+    } finally {
+      harness.close();
+    }
+  });
+
+  it('blocks duplicate evidence and persists a human escalation', async () => {
+    const harness = createHarness(plan, 'different-owner');
+    try {
+      const submitted = await harness.adapter.submitApprovedOrder(orderRequest);
+      expect(submitted.ok).toBe(true);
       const model = new ScriptedModel(['read_attempt_journal', 'finish']);
-      const blocked: VerificationResult = {
-        result: 'BLOCKED',
-        checks: { duplicateOrders: false, orderAttemptMatches: true },
-        evidenceIds: ['evidence-duplicate-fixture'],
-      };
-      const result = await makeAgent(harness, model, blocked).recover(incident);
+      const result = await makeAgent(harness, model).recover(incident);
       expect(result.result).toBe('BLOCKED');
       expect(result.needsHuman).toBe(true);
       expect(harness.marked[0]?.reasonCode).toBe('VERIFICATION_BLOCKED');
+    } finally {
+      harness.close();
+    }
+  });
+
+  it('rejects incomplete verifier output instead of accepting or filling its missing checks', async () => {
+    const harness = createHarness();
+    try {
+      const partialVerifier = {
+        verify: async () => ({
+          result: 'VERIFIED',
+          checks: { PLAN_HASH_MATCHES: true },
+          evidenceIds: ['unpersisted-evidence'],
+        }),
+      } as unknown as VerificationPort;
+      const agent = new BoundedRecoveryAgent(
+        new ScriptedModel(['read_attempt_journal', 'finish']),
+        harness.repository,
+        harness.adapter,
+        partialVerifier,
+        { emit: () => undefined },
+      );
+      const result = await agent.recover(incident);
+      expect(result.result).toBe('UNCERTAIN');
+      expect(result.evidenceIds).toEqual(['escalation-evidence-1']);
+      expect(Object.keys(result.checks)).toHaveLength(9);
+      expect(Object.values(result.checks).every((check) => !check)).toBe(true);
     } finally {
       harness.close();
     }
@@ -302,14 +371,7 @@ describe('bounded model-led order recovery', () => {
           ];
         },
       };
-      const uncertain: VerificationResult = {
-        result: 'UNCERTAIN',
-        checks: { noOrderFound: true },
-        evidenceIds: [],
-      };
-      const denied = await makeAgent(harness, mutationModel, uncertain).recover(
-        incident,
-      );
+      const denied = await makeAgent(harness, mutationModel).recover(incident);
       expect(denied.result).toBe('UNCERTAIN');
       expect(denied.diagnosticTools).toEqual([]);
       expect(harness.adapter.countOrdersForPlan(plan.id)).toBe(0);
@@ -325,16 +387,7 @@ describe('bounded model-led order recovery', () => {
         'query_order_by_client_id',
         'finish',
       ]);
-      const result = await makeAgent(
-        capped,
-        model,
-        {
-          result: 'UNCERTAIN',
-          checks: { attemptFound: false },
-          evidenceIds: [],
-        },
-        1,
-      ).recover(incident);
+      const result = await makeAgent(capped, model, 1).recover(incident);
       expect(result.needsHuman).toBe(true);
       expect(model.toolsEnabled).toEqual([true, false]);
       expect(capped.marked[0]?.reasonCode).toBe('MODEL_TOOL_PROTOCOL_FAILURE');
@@ -400,11 +453,7 @@ describe('bounded model-led order recovery', () => {
     const harness = createHarness();
     try {
       const model = createDiagnosticModelFromEnvironment({});
-      const result = await makeAgent(harness, model, {
-        result: 'UNCERTAIN',
-        checks: { verifierAvailable: true },
-        evidenceIds: [],
-      }).recover(incident);
+      const result = await makeAgent(harness, model).recover(incident);
       expect(result).toMatchObject({ result: 'UNCERTAIN', needsHuman: true });
       expect(harness.marked[0]?.reasonCode).toBe('MODEL_UNAVAILABLE');
     } finally {

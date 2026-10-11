@@ -39,6 +39,9 @@ importers:
 
   packages/agent:
     dependencies:
+      '@nightorder/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@nightorder/execution':
         specifier: workspace:*
         version: link:../execution
