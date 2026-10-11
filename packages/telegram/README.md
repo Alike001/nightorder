@@ -42,9 +42,14 @@ transaction. `InMemoryTelegramPlanRepository` and
 
 ## Tracing
 
-Pass a `TelegramTraceSink` to connect future Neatlogs instrumentation. Trace
-events intentionally omit natural-language message text and credentials, and a
-trace backend failure cannot change authorization or persistence behavior.
+Inject `NeatlogsTelegramTraceSink` from `@nightorder/tracing` through the
+`TelegramTraceSink` boundary. Each update produces a correlated `WORKFLOW` root
+with `AGENT`, `TOOL`, and `GUARDRAIL` children. Trace attributes contain a
+generated application run ID and pseudonymous plan ID, never private message
+content, user/chat IDs, credentials, tokens, or model reasoning. A telemetry
+failure cannot change authorization or persistence behavior. See
+`packages/tracing/README.md` for configuration, lifecycle, evaluation, and proof
+requirements.
 
 ## Checks
 

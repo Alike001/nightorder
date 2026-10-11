@@ -57,6 +57,20 @@ class RecordingTrace implements TelegramTraceSink {
   record(event: TelegramTraceEvent): void {
     this.events.push(structuredClone(event));
   }
+  async runSpan<T>(
+    event: TelegramTraceEvent,
+    operation: (scope: {
+      setAttribute(name: string, value: string | number | boolean): void;
+    }) => Promise<T>,
+  ): Promise<T> {
+    const attributes = { ...event.attributes };
+    this.events.push({ ...structuredClone(event), attributes });
+    return operation({
+      setAttribute(name, value) {
+        attributes[name] = value;
+      },
+    });
+  }
 }
 
 interface Harness {
@@ -168,6 +182,36 @@ describe('Telegram authorization and command surface', () => {
     expect(await testHarness.repository.listPlansByOwner(OTHER_OWNER)).toEqual(
       [],
     );
+    expect(testHarness.trace.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'telegram.instruction_workflow',
+          kind: 'WORKFLOW',
+        }),
+        expect.objectContaining({
+          name: 'telegram.authorization.denied',
+          kind: 'GUARDRAIL',
+          attributes: expect.objectContaining({ passed: false }),
+        }),
+      ]),
+    );
+  });
+
+  it('correlates one update by run ID and generates a fresh ID for the next update', async () => {
+    const testHarness = harness();
+    await testHarness.send('/new buy bitcoin', OTHER_OWNER);
+    await testHarness.send('/new buy bitcoin', OTHER_OWNER);
+    const workflows = testHarness.trace.events.filter(
+      ({ kind }) => kind === 'WORKFLOW',
+    );
+    const refusals = testHarness.trace.events.filter(
+      ({ name }) => name === 'telegram.authorization.denied',
+    );
+    expect(workflows).toHaveLength(2);
+    expect(refusals).toHaveLength(2);
+    expect(refusals[0]?.runId).toBe(workflows[0]?.runId);
+    expect(refusals[1]?.runId).toBe(workflows[1]?.runId);
+    expect(workflows[0]?.runId).not.toBe(workflows[1]?.runId);
   });
 
   it('lists only the authorized owner’s persisted plans', async () => {
@@ -232,6 +276,21 @@ describe('clarification and exact preview', () => {
     expect(JSON.stringify(testHarness.trace.events)).not.toContain(
       'Buy 50 USDT',
     );
+    expect(testHarness.trace.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'telegram.interpret_instruction',
+          kind: 'AGENT',
+        }),
+        expect.objectContaining({
+          name: 'telegram.instruction.validation',
+          kind: 'GUARDRAIL',
+        }),
+      ]),
+    );
+    expect(JSON.stringify(testHarness.trace.events)).not.toContain(
+      'plan-telegram-001',
+    );
   });
 });
 
@@ -245,6 +304,24 @@ describe('approval safety', () => {
     expect(reply.text).toContain('No order has been accepted or filled');
     expect(armed?.state).toBe('ARMED');
     expect(armed?.approvedAtUtc).toBe(NOW);
+    const approvalEvents = testHarness.trace.events.filter((event) =>
+      event.name.startsWith('telegram.approval.'),
+    );
+    expect(approvalEvents.map(({ name, kind }) => [name, kind])).toEqual([
+      ['telegram.approval.command_validation', 'GUARDRAIL'],
+      ['telegram.approval.attempt', 'TOOL'],
+      ['telegram.approval.authorization', 'GUARDRAIL'],
+    ]);
+    expect(approvalEvents[2]?.attributes).toMatchObject({ passed: true });
+    expect(approvalEvents[1]?.pseudonymousPlanId).toMatch(
+      /^plan_[a-f0-9]{24}$/,
+    );
+    expect(approvalEvents[1]?.pseudonymousPlanId).toBe(
+      testHarness.trace.events.find(
+        ({ name }) => name === 'telegram.plan.previewed',
+      )?.pseudonymousPlanId,
+    );
+    expect(JSON.stringify(approvalEvents)).not.toContain(awaiting.id);
   });
 
   it('rejects a modified digest and leaves the plan awaiting confirmation', async () => {

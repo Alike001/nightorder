@@ -13,6 +13,12 @@ import {
   type TradePlan,
 } from '@nightorder/domain';
 import {
+  generateRunId,
+  pseudonymizePlanId,
+  type NightOrderSpanKind,
+  type TraceSpanScope,
+} from '@nightorder/tracing';
+import {
   assertUtcClockValue,
   instructionProposalSchema,
   telegramMessageSchema,
@@ -99,10 +105,39 @@ export class TelegramInstructionWorkflow {
   async handle(messageInput: TelegramMessage): Promise<TelegramReply> {
     const message = telegramMessageSchema.parse(messageInput);
     const nowUtc = assertUtcClockValue(this.clock.nowUtc());
-    if (!this.allowlist.has(message.userId)) {
-      await this.traceSafely('telegram.authorization.denied', nowUtc, {
+    const runId = generateRunId();
+    return this.runTraceSpan(
+      'telegram.instruction_workflow',
+      'WORKFLOW',
+      runId,
+      nowUtc,
+      {
         command: commandName(message.text),
-      });
+        paper_only: true,
+      },
+      undefined,
+      async (scope) => {
+        const reply = await this.handleTraced(message, nowUtc, runId);
+        scope.setAttribute('result_kind', reply.kind);
+        scope.setAttribute('successful', reply.kind !== 'ERROR');
+        return reply;
+      },
+    );
+  }
+
+  private async handleTraced(
+    message: TelegramMessage,
+    nowUtc: string,
+    runId: string,
+  ): Promise<TelegramReply> {
+    if (!this.allowlist.has(message.userId)) {
+      await this.traceSafely(
+        'telegram.authorization.denied',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { command: commandName(message.text), passed: false },
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -111,28 +146,29 @@ export class TelegramInstructionWorkflow {
     }
 
     const command = parseCommand(message.text);
-    await this.traceSafely('telegram.command.received', nowUtc, {
+    await this.traceSafely('telegram.command.route', 'TOOL', runId, nowUtc, {
       command: command?.name ?? 'clarification',
       authorized: true,
+      tool_name: 'telegram_command_router',
     });
 
     if (!command) {
-      return this.handleClarification(message, nowUtc);
+      return this.handleClarification(message, nowUtc, runId);
     }
 
     switch (command.name) {
       case 'start':
         return this.handleStart(message.chatId);
       case 'new':
-        return this.handleNew(message, command.rawArguments, nowUtc);
+        return this.handleNew(message, command.rawArguments, nowUtc, runId);
       case 'plans':
         return this.handlePlans(message);
       case 'status':
-        return this.handleStatus(message, command.args, nowUtc);
+        return this.handleStatus(message, command.args, nowUtc, runId);
       case 'confirm':
-        return this.handleConfirm(message, command.args, nowUtc);
+        return this.handleConfirm(message, command.args, nowUtc, runId);
       case 'cancel':
-        return this.handleCancel(message, command.args, nowUtc);
+        return this.handleCancel(message, command.args, nowUtc, runId);
       default:
         return this.reply(
           message.chatId,
@@ -161,6 +197,7 @@ export class TelegramInstructionWorkflow {
     message: TelegramMessage,
     instruction: string,
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     this.conversations.set(message.userId, []);
     if (instruction.length === 0) {
@@ -170,12 +207,13 @@ export class TelegramInstructionWorkflow {
         'Describe one BTC/USDT PAPER instruction, including BUY/SELL, amount, price condition, worst limit, expiry, and timezone.',
       );
     }
-    return this.interpretAndPreview(message, instruction, nowUtc);
+    return this.interpretAndPreview(message, instruction, nowUtc, runId);
   }
 
   private async handleClarification(
     message: TelegramMessage,
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     if (!this.conversations.has(message.userId)) {
       return this.reply(
@@ -184,13 +222,14 @@ export class TelegramInstructionWorkflow {
         'Start an instruction with /new before sending plan details.',
       );
     }
-    return this.interpretAndPreview(message, message.text, nowUtc);
+    return this.interpretAndPreview(message, message.text, nowUtc, runId);
   }
 
   private async interpretAndPreview(
     message: TelegramMessage,
     input: string,
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     const conversation = this.conversations.get(message.userId) ?? [];
     conversation.push(input);
@@ -199,15 +238,35 @@ export class TelegramInstructionWorkflow {
     let proposal: InstructionProposal;
     try {
       proposal = instructionProposalSchema.parse(
-        await this.interpreter.interpret({
+        await this.runTraceSpan(
+          'telegram.interpret_instruction',
+          'AGENT',
+          runId,
           nowUtc,
-          messages: this.conversations.get(message.userId) ?? [],
-        }),
+          {
+            turn_count: this.conversations.get(message.userId)?.length ?? 0,
+            text_length: input.length,
+            capture_content: false,
+          },
+          undefined,
+          async (scope) => {
+            const interpreted = await this.interpreter.interpret({
+              nowUtc,
+              messages: this.conversations.get(message.userId) ?? [],
+            });
+            scope.setAttribute('completed', true);
+            return interpreted;
+          },
+        ),
       );
     } catch {
-      await this.traceSafely('telegram.interpretation.failed', nowUtc, {
-        safeFailure: true,
-      });
+      await this.traceSafely(
+        'telegram.interpretation.validation',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, failure_code: 'INVALID_MODEL_OUTPUT' },
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -215,16 +274,37 @@ export class TelegramInstructionWorkflow {
       );
     }
 
-    const assessment = assessProposal(
-      proposal,
-      message.userId,
-      this.planIdGenerator.nextPlanId(),
+    const assessment = await this.runTraceSpan(
+      'telegram.instruction.validation',
+      'GUARDRAIL',
+      runId,
       nowUtc,
+      { paper_only: true },
+      undefined,
+      async (scope) => {
+        const result = assessProposal(
+          proposal,
+          message.userId,
+          this.planIdGenerator.nextPlanId(),
+          nowUtc,
+        );
+        const valid = !('fields' in result);
+        scope.setAttribute('passed', valid);
+        scope.setAttribute(
+          'clarification_field_count',
+          'fields' in result ? result.fields.length : 0,
+        );
+        return result;
+      },
     );
     if ('fields' in assessment) {
-      await this.traceSafely('telegram.clarification.required', nowUtc, {
-        fields: assessment.fields.join(','),
-      });
+      await this.traceSafely(
+        'telegram.clarification.required',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, fields: assessment.fields.join(',') },
+      );
       return this.reply(
         message.chatId,
         'CLARIFICATION',
@@ -272,11 +352,18 @@ export class TelegramInstructionWorkflow {
       atUtc: nowUtc,
       revision: stored.data.revision,
     });
-    await this.traceSafely('telegram.plan.previewed', nowUtc, {
-      planId: stored.data.id,
-      revision: stored.data.revision,
-      mode: stored.data.mode,
-    });
+    await this.traceSafely(
+      'telegram.plan.previewed',
+      'TOOL',
+      runId,
+      nowUtc,
+      {
+        revision: stored.data.revision,
+        mode: stored.data.mode,
+        tool_name: 'plan_repository',
+      },
+      pseudonymizePlanId(stored.data.id),
+    );
     return this.reply(
       message.chatId,
       'PREVIEW',
@@ -299,6 +386,7 @@ export class TelegramInstructionWorkflow {
     message: TelegramMessage,
     args: readonly string[],
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     if (args.length !== 1) {
       return this.reply(message.chatId, 'ERROR', 'Usage: /status <planId>');
@@ -308,13 +396,29 @@ export class TelegramInstructionWorkflow {
       return this.reply(message.chatId, 'ERROR', 'Plan not found.');
     }
     if (plan.ownerId !== message.userId) {
+      await this.traceSafely(
+        'telegram.plan_access.denied',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, failure_code: 'OWNER_MISMATCH' },
+        pseudonymizePlanId(plan.id),
+      );
       return this.reply(
         message.chatId,
         'ERROR',
         'Unauthorized. You cannot view another owner’s plan.',
       );
     }
-    const attempt = await this.repository.loadAttempt(plan.id);
+    const attempt = await this.runTraceSpan(
+      'telegram.plan_status.read',
+      'TOOL',
+      runId,
+      nowUtc,
+      { tool_name: 'plan_repository', found: true },
+      pseudonymizePlanId(plan.id),
+      async () => this.repository.loadAttempt(plan.id),
+    );
     return this.reply(
       message.chatId,
       'STATUS',
@@ -326,8 +430,16 @@ export class TelegramInstructionWorkflow {
     message: TelegramMessage,
     args: readonly string[],
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     if (args.length !== 3) {
+      await this.traceSafely(
+        'telegram.approval.command_validation',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, failure_code: 'INVALID_ARGUMENT_COUNT' },
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -337,6 +449,14 @@ export class TelegramInstructionWorkflow {
     const [planId = '', revisionText = '', digest = ''] = args;
     const revision = parseRevision(revisionText);
     if (revision === null || !sha256DigestSchema.safeParse(digest).success) {
+      await this.traceSafely(
+        'telegram.approval.command_validation',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, failure_code: 'INVALID_REVISION_OR_DIGEST' },
+        planId.length === 0 ? undefined : pseudonymizePlanId(planId),
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -344,18 +464,44 @@ export class TelegramInstructionWorkflow {
       );
     }
 
-    const result = await this.repository.approveExactAtRevision(
-      planId,
-      message.userId,
-      digest,
-      revision,
+    const pseudonymousPlanId = pseudonymizePlanId(planId);
+    await this.traceSafely(
+      'telegram.approval.command_validation',
+      'GUARDRAIL',
+      runId,
       nowUtc,
+      { passed: true },
+      pseudonymousPlanId,
+    );
+    const result = await this.runTraceSpan(
+      'telegram.approval.attempt',
+      'TOOL',
+      runId,
+      nowUtc,
+      { tool_name: 'approve_exact', revision },
+      pseudonymousPlanId,
+      async (scope) => {
+        const approval = await this.repository.approveExactAtRevision(
+          planId,
+          message.userId,
+          digest,
+          revision,
+          nowUtc,
+        );
+        scope.setAttribute('accepted', approval.ok);
+        scope.setAttribute('result_code', approval.ok ? 'OK' : approval.code);
+        return approval;
+      },
     );
     if (!result.ok) {
-      await this.traceSafely('telegram.approval.rejected', nowUtc, {
-        planId,
-        code: result.code,
-      });
+      await this.traceSafely(
+        'telegram.approval.authorization',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, code: result.code },
+        pseudonymousPlanId,
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -369,11 +515,18 @@ export class TelegramInstructionWorkflow {
       revision: result.data.revision,
       digest: result.data.planHash,
     });
-    await this.traceSafely('telegram.approval.accepted', nowUtc, {
-      planId: result.data.id,
-      revision: result.data.revision,
-      state: result.data.state,
-    });
+    await this.traceSafely(
+      'telegram.approval.authorization',
+      'GUARDRAIL',
+      runId,
+      nowUtc,
+      {
+        passed: true,
+        revision: result.data.revision,
+        state: result.data.state,
+      },
+      pseudonymizePlanId(result.data.id),
+    );
     return this.reply(
       message.chatId,
       'APPROVED',
@@ -385,6 +538,7 @@ export class TelegramInstructionWorkflow {
     message: TelegramMessage,
     args: readonly string[],
     nowUtc: string,
+    runId: string,
   ): Promise<TelegramReply> {
     if (args.length !== 1) {
       return this.reply(message.chatId, 'ERROR', 'Usage: /cancel <planId>');
@@ -392,17 +546,38 @@ export class TelegramInstructionWorkflow {
     const planId = args[0] ?? '';
     const plan = await this.repository.loadPlan(planId);
     if (!plan) return this.reply(message.chatId, 'ERROR', 'Plan not found.');
-    const result = await this.repository.cancelOwnedAtRevision(
-      plan.id,
-      message.userId,
-      plan.revision,
+    const pseudonymousPlanId = pseudonymizePlanId(plan.id);
+    const result = await this.runTraceSpan(
+      'telegram.cancellation.attempt',
+      'TOOL',
+      runId,
       nowUtc,
+      { tool_name: 'cancel_owned_plan', revision: plan.revision },
+      pseudonymousPlanId,
+      async (scope) => {
+        const cancellation = await this.repository.cancelOwnedAtRevision(
+          plan.id,
+          message.userId,
+          plan.revision,
+          nowUtc,
+        );
+        scope.setAttribute('accepted', cancellation.ok);
+        scope.setAttribute(
+          'result_code',
+          cancellation.ok ? 'OK' : cancellation.code,
+        );
+        return cancellation;
+      },
     );
     if (!result.ok) {
-      await this.traceSafely('telegram.cancellation.rejected', nowUtc, {
-        planId,
-        code: result.code,
-      });
+      await this.traceSafely(
+        'telegram.cancellation.authorization',
+        'GUARDRAIL',
+        runId,
+        nowUtc,
+        { passed: false, code: result.code },
+        pseudonymousPlanId,
+      );
       return this.reply(
         message.chatId,
         'ERROR',
@@ -416,10 +591,14 @@ export class TelegramInstructionWorkflow {
       resultingState: result.data.state,
       revision: result.data.revision,
     });
-    await this.traceSafely('telegram.cancellation.recorded', nowUtc, {
-      planId: result.data.id,
-      state: result.data.state,
-    });
+    await this.traceSafely(
+      'telegram.cancellation.recorded',
+      'GUARDRAIL',
+      runId,
+      nowUtc,
+      { passed: true, state: result.data.state },
+      pseudonymizePlanId(result.data.id),
+    );
     const text =
       result.data.state === 'CANCEL_REQUESTED'
         ? `Plan ${planId}: cancellation requested. It is not cancelled until readback confirms cancellation.`
@@ -441,14 +620,49 @@ export class TelegramInstructionWorkflow {
 
   private async traceSafely(
     name: string,
+    kind: NightOrderSpanKind,
+    runId: string,
     atUtc: string,
     attributes: Readonly<Record<string, string | number | boolean>>,
+    pseudonymousPlanId?: string,
   ): Promise<void> {
     try {
-      await this.trace.record({ name, atUtc, attributes });
+      await this.trace.record({
+        name,
+        kind,
+        runId,
+        atUtc,
+        attributes,
+        ...(pseudonymousPlanId === undefined ? {} : { pseudonymousPlanId }),
+      });
     } catch {
       // Observability must not change authorization or persistence behavior.
     }
+  }
+
+  private async runTraceSpan<T>(
+    name: string,
+    kind: NightOrderSpanKind,
+    runId: string,
+    atUtc: string,
+    attributes: Readonly<Record<string, string | number | boolean>>,
+    pseudonymousPlanId: string | undefined,
+    operation: (scope: TraceSpanScope) => Promise<T>,
+  ): Promise<T> {
+    if (!this.trace.runSpan) {
+      return operation({ setAttribute() {} });
+    }
+    return this.trace.runSpan(
+      {
+        name,
+        kind,
+        runId,
+        atUtc,
+        attributes,
+        ...(pseudonymousPlanId === undefined ? {} : { pseudonymousPlanId }),
+      },
+      operation,
+    );
   }
 }
 

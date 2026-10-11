@@ -5,6 +5,7 @@ import type {
   TradePlan,
 } from '@nightorder/domain';
 import { stableIdSchema, utcTimestampSchema } from '@nightorder/domain';
+import type { NightOrderSpanKind, TraceSpanScope } from '@nightorder/tracing';
 import { z } from 'zod';
 
 export const telegramMessageSchema = z
@@ -96,6 +97,9 @@ export interface TelegramPlanRepository extends PlanRepository {
 
 export interface TelegramTraceEvent {
   readonly name: string;
+  readonly kind: NightOrderSpanKind;
+  readonly runId: string;
+  readonly pseudonymousPlanId?: string;
   readonly atUtc: string;
   readonly attributes: Readonly<Record<string, string | number | boolean>>;
 }
@@ -103,6 +107,10 @@ export interface TelegramTraceEvent {
 /** Injectable boundary for Neatlogs; events must never contain message text or credentials. */
 export interface TelegramTraceSink {
   record(event: TelegramTraceEvent): Promise<void> | void;
+  runSpan?<T>(
+    event: TelegramTraceEvent,
+    operation: (scope: TraceSpanScope) => Promise<T>,
+  ): Promise<T>;
 }
 
 export interface Clock {

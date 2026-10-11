@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nightorder/domain": "workspace:*",
+    "@nightorder/tracing": "workspace:*",
     "openai": "^7.32.0",
     "zod": "^4.6.5"
   },
