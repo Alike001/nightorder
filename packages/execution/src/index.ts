@@ -1,52 +1,49 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import type {
+  ExecutionPort,
+  OrderAttempt,
+  OrderReadbackResult,
+  OrderStatusResult,
+  SubmitApprovedOrderInput,
+  ToolErrorCode,
+  ToolResult,
+  TradePlan,
+  VirtualBalances,
+  VenueStatus,
+} from '@nightorder/domain';
+import type { VerificationEvidenceSnapshot } from '@nightorder/domain';
+import {
+  mapPaperCancelAcknowledgement,
+  mapSqlitePaperOrderAttempt,
+  persistentPaperOrderSchema,
+  orderReadbackToolResultSchema,
+  submitApprovedOrderResultSchema,
+  tradePlanSchema,
+  virtualBalancesSchema,
+} from '@nightorder/domain';
 
 export type PaperSide = 'BUY' | 'SELL';
 /** Structural projection of the frozen TradePlan contract needed by the paper adapter. */
-export interface ApprovedPaperPlan {
-  id: string;
-  symbol: 'BTCUSDT';
-  side: PaperSide;
-  quoteBudgetUsdt?: string;
-  baseQuantityBtc?: string;
-  limitPrice: string;
-  expiresAtUtc: string;
-  mode: 'PAPER' | 'TESTNET';
-  planHash: string;
-  approvedAtUtc?: string;
-  state: string;
-}
+export type ApprovedPaperPlan = TradePlan;
 
 export interface ApprovedPlanReader {
   loadPlan(planId: string): Promise<ApprovedPaperPlan | null>;
+  /** Evidence IDs must come from persisted plan and authorization records. */
+  loadPlanEvidence?(
+    planId: string,
+  ): Promise<VerificationEvidenceSnapshot['plan'] | undefined>;
+  loadAuthorizationEvidence?(
+    planId: string,
+  ): Promise<VerificationEvidenceSnapshot['authorization'] | undefined>;
 }
 
-export interface PaperOrderRequest {
-  clientOrderId: string;
-  planId: string;
-  symbol: 'BTCUSDT';
-  side: PaperSide;
-  quantity: string;
-  limitPrice: string;
-}
+export type PaperOrderRequest = SubmitApprovedOrderInput;
 
-export type PaperErrorCode =
-  'EXPIRED' | 'INSUFFICIENT_BALANCE' | 'NOT_FOUND' | 'REJECTED' | 'AMBIGUOUS';
+export type PaperErrorCode = ToolErrorCode;
+export type PaperResult<T> = ToolResult<T>;
 
-export type PaperResult<T> =
-  | { ok: true; data: T; evidenceId: string }
-  | {
-      ok: false;
-      code: PaperErrorCode;
-      message: string;
-      retrySafe: boolean;
-      evidenceId: string;
-    };
-
-export interface PaperBalances {
-  BTC: string;
-  USDT: string;
-}
+export type PaperBalances = VirtualBalances;
 
 export interface PaperOrder {
   orderId: string;
@@ -56,25 +53,14 @@ export interface PaperOrder {
   side: PaperSide;
   quantity: string;
   limitPrice: string;
-  status: 'NEW' | 'CANCELED';
-  filledQuantity: '0';
+  status: VenueStatus;
+  filledQuantity: string;
   createdAtUtc: string;
   updatedAtUtc: string;
   requestDigest: string;
 }
 
-export interface PaperOrderAttempt {
-  id: string;
-  planId: string;
-  operationId: string;
-  clientOrderId: string;
-  requestDigest: string;
-  state: 'ACKNOWLEDGED';
-  venueStatus: 'NEW';
-  evidenceSource: 'ORIGINAL_PAPER';
-  createdAtUtc: string;
-  orderId: string;
-}
+export type PaperOrderAttempt = OrderAttempt;
 
 export interface PaperExecutionOptions {
   databasePath: string;
@@ -180,7 +166,7 @@ function asPaperOrder(row: Record<string, unknown>): PaperOrder {
     quantity: String(row.quantity),
     limitPrice: String(row.limit_price),
     status: row.status as PaperOrder['status'],
-    filledQuantity: '0',
+    filledQuantity: String(row.filled_quantity ?? '0'),
     createdAtUtc: String(row.created_at_utc),
     updatedAtUtc: String(row.updated_at_utc),
     requestDigest: String(row.request_digest),
@@ -206,7 +192,8 @@ function immediateTransaction<T>(
  * Durable, local PAPER-only ExecutionPort adapter. Orders are accepted as resting
  * NEW orders; this adapter never claims that an order filled.
  */
-export class SqlitePaperExecutionAdapter {
+export class SqlitePaperExecutionAdapter implements ExecutionPort {
+  readonly mode = 'PAPER' as const;
   private readonly database: DatabaseSync;
   private readonly now: () => Date;
 
@@ -237,7 +224,8 @@ export class SqlitePaperExecutionAdapter {
         limit_price TEXT NOT NULL,
         reserved_amount TEXT NOT NULL,
         reserved_asset TEXT NOT NULL CHECK (reserved_asset IN ('BTC', 'USDT')),
-        status TEXT NOT NULL CHECK (status IN ('NEW', 'CANCELED')),
+        status TEXT NOT NULL CHECK (status IN ('NEW', 'PARTIALLY_FILLED', 'FILLED', 'CANCELED', 'REJECTED', 'EXPIRED')),
+        filled_quantity TEXT NOT NULL DEFAULT '0',
         created_at_utc TEXT NOT NULL,
         updated_at_utc TEXT NOT NULL,
         request_digest TEXT NOT NULL
@@ -249,13 +237,23 @@ export class SqlitePaperExecutionAdapter {
         operation_id TEXT NOT NULL UNIQUE,
         client_order_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(client_order_id),
         request_digest TEXT NOT NULL,
-        state TEXT NOT NULL CHECK (state = 'ACKNOWLEDGED'),
-        venue_status TEXT NOT NULL CHECK (venue_status = 'NEW'),
+        state TEXT NOT NULL CHECK (state IN ('PREPARED', 'SENDING', 'UNCERTAIN', 'ACKNOWLEDGED', 'RECONCILED')),
+        venue_status TEXT CHECK (venue_status IN ('NEW', 'PARTIALLY_FILLED', 'FILLED', 'CANCELED', 'REJECTED', 'EXPIRED')),
         evidence_source TEXT NOT NULL CHECK (evidence_source = 'ORIGINAL_PAPER'),
         created_at_utc TEXT NOT NULL,
-        order_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(order_id)
+        order_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(order_id),
+        reconciled_at_utc TEXT
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS paper_cancel_acknowledgements (
+        id TEXT PRIMARY KEY,
+        client_order_id TEXT NOT NULL REFERENCES paper_orders(client_order_id),
+        status TEXT NOT NULL CHECK (status = 'CANCELED'),
+        acknowledged_at_utc TEXT NOT NULL
       ) STRICT;
     `);
+
+    this.migrateExistingSchema();
 
     const insertBalance = this.database.prepare(
       'INSERT OR IGNORE INTO virtual_balances (asset, initial_amount) VALUES (?, ?)',
@@ -302,15 +300,31 @@ export class SqlitePaperExecutionAdapter {
         ),
       );
     }
-    return { ok: true, data: available, evidenceId: randomUUID() };
+    return {
+      ok: true,
+      data: virtualBalancesSchema.parse(available),
+      evidenceId: randomUUID(),
+    };
   }
 
   async submitApprovedOrder(
     request: PaperOrderRequest,
-  ): Promise<PaperResult<{ orderId: string; status: string }>> {
+  ): Promise<PaperResult<OrderStatusResult>> {
     const plan = await this.plans.loadPlan(request.planId);
     if (!plan)
       return error('NOT_FOUND', 'No approved plan exists for this order.');
+    let planIsValid = false;
+    try {
+      planIsValid = tradePlanSchema.safeParse(plan).success;
+    } catch {
+      planIsValid = false;
+    }
+    if (!planIsValid) {
+      return error(
+        'REJECTED',
+        'The persisted plan does not satisfy the domain contract.',
+      );
+    }
     const validation = this.validate(request, plan);
     if (validation) return validation;
 
@@ -340,11 +354,14 @@ export class SqlitePaperExecutionAdapter {
           'clientOrderId already belongs to a different request.',
         );
       }
-      return {
+      if (existing.status !== 'NEW') {
+        return error('REJECTED', 'The existing paper order is no longer open.');
+      }
+      return submitApprovedOrderResultSchema.parse({
         ok: true,
         data: { orderId: existing.orderId, status: existing.status },
         evidenceId: existing.orderId,
-      };
+      });
     }
 
     const createOrder = immediateTransaction(this.database, () => {
@@ -433,56 +450,72 @@ export class SqlitePaperExecutionAdapter {
         `Insufficient virtual ${reserveAsset} balance.`,
       );
     }
-    return {
+    return submitApprovedOrderResultSchema.parse({
       ok: true,
       data: { orderId: createOrder.orderId, status: 'NEW' },
       evidenceId: createOrder.orderId,
-    };
+    });
   }
 
   async findOrderByClientId(
     clientOrderId: string,
-  ): Promise<
-    PaperResult<{ orderId: string; status: string; filledQuantity: string }>
-  > {
+  ): Promise<PaperResult<OrderReadbackResult>> {
     const order = this.findByClientId(clientOrderId);
     if (!order)
       return error(
         'NOT_FOUND',
         'No paper order exists for this clientOrderId.',
       );
-    return {
+    return orderReadbackToolResultSchema.parse({
       ok: true,
       data: {
         orderId: order.orderId,
         status: order.status,
-        filledQuantity: '0',
+        filledQuantity: order.filledQuantity,
       },
       evidenceId: order.orderId,
-    };
+    });
   }
 
   async requestCancel(
     clientOrderId: string,
-  ): Promise<PaperResult<{ status: string }>> {
+  ): Promise<PaperResult<{ status: 'CANCEL_REQUESTED' }>> {
     const cancel = immediateTransaction(this.database, () => {
       const order = this.findByClientId(clientOrderId);
       if (!order) return null;
+      const acknowledgedAt = this.now().toISOString();
       if (order.status === 'NEW') {
         this.database
           .prepare(
             "UPDATE paper_orders SET status = 'CANCELED', updated_at_utc = ? WHERE order_id = ?",
           )
-          .run(this.now().toISOString(), order.orderId);
+          .run(acknowledgedAt, order.orderId);
+        this.database
+          .prepare(
+            "UPDATE paper_attempts SET state = 'RECONCILED', venue_status = 'CANCELED', reconciled_at_utc = ? WHERE plan_id = ?",
+          )
+          .run(acknowledgedAt, order.planId);
       }
-      return order.orderId;
+      const acknowledgementId = randomUUID();
+      this.database
+        .prepare(
+          "INSERT INTO paper_cancel_acknowledgements (id, client_order_id, status, acknowledged_at_utc) VALUES (?, ?, 'CANCELED', ?)",
+        )
+        .run(acknowledgementId, clientOrderId, acknowledgedAt);
+      return { orderId: order.orderId, acknowledgementId };
     });
     if (!cancel)
       return error(
         'NOT_FOUND',
         'No paper order exists for this clientOrderId.',
       );
-    return { ok: true, data: { status: 'CANCELED' }, evidenceId: cancel };
+    const ack = this.database
+      .prepare(
+        'SELECT id, status FROM paper_cancel_acknowledgements WHERE client_order_id = ? ORDER BY acknowledged_at_utc DESC LIMIT 1',
+      )
+      .get(clientOrderId) as { id: string; status: string } | undefined;
+    const result = mapPaperCancelAcknowledgement({ status: ack?.status });
+    return { ok: true, data: result, evidenceId: cancel.acknowledgementId };
   }
 
   getOrderByClientId(clientOrderId: string): PaperOrder | null {
@@ -496,27 +529,100 @@ export class SqlitePaperExecutionAdapter {
     return row.count;
   }
 
-  getAttemptForPlan(planId: string): PaperOrderAttempt | null {
+  getAttemptForPlan(planId: string): OrderAttempt | null {
     const row = this.database
       .prepare('SELECT * FROM paper_attempts WHERE plan_id = ?')
       .get(planId) as Record<string, unknown> | undefined;
     if (!row) return null;
+    return mapSqlitePaperOrderAttempt({
+      id: row.id,
+      planId: row.plan_id,
+      operationId: row.operation_id,
+      clientOrderId: row.client_order_id,
+      requestDigest: row.request_digest,
+      state: row.state,
+      ...(row.venue_status === null ? {} : { venueStatus: row.venue_status }),
+      evidenceSource: row.evidence_source,
+      createdAtUtc: row.created_at_utc,
+      ...(row.order_id === null ? {} : { orderId: row.order_id }),
+      ...(row.reconciled_at_utc === null
+        ? {}
+        : { reconciledAtUtc: row.reconciled_at_utc }),
+    });
+  }
+
+  async loadVerificationEvidence(
+    planId: string,
+  ): Promise<VerificationEvidenceSnapshot> {
+    const [plan, authorization] = await Promise.all([
+      this.plans.loadPlanEvidence?.(planId),
+      this.plans.loadAuthorizationEvidence?.(planId),
+    ]);
+    const attempt = this.getAttemptForPlan(planId);
+    const orderRow = this.database
+      .prepare('SELECT * FROM paper_orders WHERE plan_id = ?')
+      .get(planId) as Record<string, unknown> | undefined;
+    const order = orderRow
+      ? persistentPaperOrderSchema.parse(asPaperOrder(orderRow))
+      : undefined;
     return {
-      id: String(row.id),
-      planId: String(row.plan_id),
-      operationId: String(row.operation_id),
-      clientOrderId: String(row.client_order_id),
-      requestDigest: String(row.request_digest),
-      state: 'ACKNOWLEDGED',
-      venueStatus: 'NEW',
-      evidenceSource: 'ORIGINAL_PAPER',
-      createdAtUtc: String(row.created_at_utc),
-      orderId: String(row.order_id),
+      ...(plan === undefined ? {} : { plan }),
+      ...(authorization === undefined ? {} : { authorization }),
+      ...(attempt === null
+        ? {}
+        : { attempts: { evidenceId: attempt.id, data: [attempt] } }),
+      ...(order === undefined
+        ? {}
+        : { order: { evidenceId: order.orderId, data: order } }),
     };
   }
 
   close(): void {
     this.database.close();
+  }
+
+  private migrateExistingSchema(): void {
+    const orderColumns = this.database
+      .prepare('PRAGMA table_info(paper_orders)')
+      .all() as Array<{ name: string }>;
+    if (!orderColumns.some((column) => column.name === 'filled_quantity')) {
+      this.database.exec(
+        "ALTER TABLE paper_orders ADD COLUMN filled_quantity TEXT NOT NULL DEFAULT '0'",
+      );
+    }
+
+    const attemptDefinition = this.database
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'paper_attempts'",
+      )
+      .get() as { sql: string } | undefined;
+    if (!attemptDefinition?.sql.includes("state = 'ACKNOWLEDGED'")) return;
+
+    this.database.exec(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE paper_attempts RENAME TO paper_attempts_legacy;
+      CREATE TABLE paper_attempts (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(plan_id),
+        operation_id TEXT NOT NULL UNIQUE,
+        client_order_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(client_order_id),
+        request_digest TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('PREPARED', 'SENDING', 'UNCERTAIN', 'ACKNOWLEDGED', 'RECONCILED')),
+        venue_status TEXT CHECK (venue_status IN ('NEW', 'PARTIALLY_FILLED', 'FILLED', 'CANCELED', 'REJECTED', 'EXPIRED')),
+        evidence_source TEXT NOT NULL CHECK (evidence_source = 'ORIGINAL_PAPER'),
+        created_at_utc TEXT NOT NULL,
+        order_id TEXT NOT NULL UNIQUE REFERENCES paper_orders(order_id),
+        reconciled_at_utc TEXT
+      ) STRICT;
+      INSERT INTO paper_attempts (
+        id, plan_id, operation_id, client_order_id, request_digest, state,
+        venue_status, evidence_source, created_at_utc, order_id
+      ) SELECT id, plan_id, operation_id, client_order_id, request_digest, state,
+        venue_status, evidence_source, created_at_utc, order_id
+        FROM paper_attempts_legacy;
+      DROP TABLE paper_attempts_legacy;
+      COMMIT;
+    `);
   }
 
   private findByClientId(clientOrderId: string): PaperOrder | null {

@@ -3,6 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  hashTradeInstruction,
+  verifyPersistentRecords,
+} from '@nightorder/domain';
+import {
   type ApprovedPaperPlan,
   type PaperExecutionOptions,
   type PaperOrderRequest,
@@ -11,18 +15,35 @@ import {
 } from './index.js';
 
 const fixedNow = new Date('2026-10-10T12:00:00.000Z');
-const planFixture: ApprovedPaperPlan = {
-  id: 'plan-1',
-  symbol: 'BTCUSDT',
-  side: 'BUY',
-  quoteBudgetUsdt: '500',
-  limitPrice: '60000',
-  expiresAtUtc: '2026-10-10T13:00:00.000Z',
-  mode: 'PAPER',
-  planHash: 'approved-digest-fixture',
-  approvedAtUtc: '2026-10-10T11:59:00.000Z',
-  state: 'SUBMITTING',
-};
+function makePlan(
+  overrides: Partial<ApprovedPaperPlan> = {},
+): ApprovedPaperPlan {
+  const { planHash: hashOverride, ...planOverrides } = overrides;
+  const instruction = {
+    id: 'plan-1',
+    ownerId: 'owner-1',
+    symbol: 'BTCUSDT',
+    side: 'BUY',
+    quoteBudgetUsdt: '500',
+    triggerPrice: '59000',
+    triggerOperator: 'ASK_LTE',
+    limitPrice: '60000',
+    expiresAtUtc: '2026-10-10T13:00:00.000Z',
+    timezone: 'UTC',
+    mode: 'PAPER',
+    ...planOverrides,
+  } as const;
+  return {
+    ...instruction,
+    planHash: hashOverride ?? hashTradeInstruction(instruction),
+    approvedAtUtc: '2026-10-10T11:59:00.000Z',
+    state: 'SUBMITTING',
+    revision: 2,
+    ...overrides,
+  };
+}
+
+const planFixture: ApprovedPaperPlan = makePlan();
 
 const requestFixture: PaperOrderRequest = {
   clientOrderId: 'nightorder-plan-1',
@@ -93,7 +114,7 @@ describe('SQLite paper execution adapter', () => {
       state: 'ACKNOWLEDGED',
       venueStatus: 'NEW',
       evidenceSource: 'ORIGINAL_PAPER',
-      orderId: submitted.data.orderId,
+      remoteOrderId: submitted.data.orderId,
     });
     expect(successfulData(await adapter.virtualBalances())).toEqual({
       BTC: '0.25',
@@ -112,10 +133,59 @@ describe('SQLite paper execution adapter', () => {
         filledQuantity: '0',
       },
     });
-    expect(reopened.getAttemptForPlan('plan-1')?.orderId).toBe(
+    expect(reopened.getAttemptForPlan('plan-1')?.remoteOrderId).toBe(
       submitted.data.orderId,
     );
     reopened.close();
+  });
+
+  it('lets the independent verifier derive checks from persisted rows and explicit plan evidence', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'nightorder-verifier-'));
+    directories.push(directory);
+    const adapter = new SqlitePaperExecutionAdapter(
+      {
+        loadPlan: async () => planFixture,
+        loadPlanEvidence: async () => ({
+          evidenceId: 'persisted-plan-evidence',
+          data: planFixture,
+        }),
+        loadAuthorizationEvidence: async () => ({
+          evidenceId: 'persisted-authorization-evidence',
+          data: {
+            planId: planFixture.id,
+            ownerId: planFixture.ownerId,
+            planHash: planFixture.planHash,
+            approvedAtUtc: planFixture.approvedAtUtc!,
+          },
+        }),
+      },
+      {
+        databasePath: join(directory, 'orders.sqlite'),
+        initialBalances: { BTC: '0.25', USDT: '1000' },
+        now: () => fixedNow,
+      },
+    );
+    try {
+      const submitted = await adapter.submitApprovedOrder(requestFixture);
+      expect(submitted.ok).toBe(true);
+      if (!submitted.ok) return;
+      const snapshot = await adapter.loadVerificationEvidence(planFixture.id);
+      expect(verifyPersistentRecords(snapshot)).toMatchObject({
+        result: 'VERIFIED',
+        checks: {
+          PLAN_HASH_MATCHES: true,
+          PLAN_APPROVED: true,
+          OWNER_AUTHORIZATION_MATCHES: true,
+          ORDER_ATTEMPT_UNIQUE: true,
+          ORDER_REQUEST_MATCHES_PLAN: true,
+          EXECUTION_STATUS_MATCHES: true,
+          CANCELLATION_STATE_MATCHES: true,
+          PAPER_EVIDENCE_ONLY: true,
+        },
+      });
+    } finally {
+      adapter.close();
+    }
   });
 
   it('allows at most one order per plan under concurrent submissions', async () => {
@@ -159,11 +229,10 @@ describe('SQLite paper execution adapter', () => {
       quantity: '0.009',
     });
     expect(overBudget).toMatchObject({ ok: false, code: 'REJECTED' });
-    const lowBalancePlan = {
-      ...planFixture,
+    const lowBalancePlan = makePlan({
       id: 'plan-2',
       quoteBudgetUsdt: '2000',
-    } as ApprovedPaperPlan;
+    });
     const lowBalanceSetup = setup(lowBalancePlan);
     const lowBalance = await lowBalanceSetup.adapter.submitApprovedOrder({
       ...requestFixture,
@@ -181,18 +250,15 @@ describe('SQLite paper execution adapter', () => {
   });
 
   it('reserves approved SELL quantity and rejects a limit below the approved minimum', async () => {
-    const sellPlan: ApprovedPaperPlan = {
+    const sellPlan = makePlan({
       id: 'sell-plan-1',
-      symbol: 'BTCUSDT',
       side: 'SELL',
+      quoteBudgetUsdt: undefined,
       baseQuantityBtc: '0.1',
+      triggerPrice: '66000',
+      triggerOperator: 'BID_GTE',
       limitPrice: '65000',
-      expiresAtUtc: '2026-10-10T13:00:00.000Z',
-      mode: 'PAPER',
-      planHash: 'approved-sell-digest-fixture',
-      approvedAtUtc: '2026-10-10T11:59:00.000Z',
-      state: 'SUBMITTING',
-    };
+    });
     const { adapter } = setup(sellPlan);
     const sellRequest: PaperOrderRequest = {
       ...requestFixture,
@@ -216,17 +282,22 @@ describe('SQLite paper execution adapter', () => {
   });
 
   it('rejects unapproved, expired and non-PAPER plans before writing', async () => {
-    const { adapter } = setup({ ...planFixture, mode: 'TESTNET' });
+    const { adapter } = setup({
+      ...planFixture,
+      mode: 'TESTNET',
+    } as unknown as ApprovedPaperPlan);
     expect(await adapter.submitApprovedOrder(requestFixture)).toMatchObject({
       ok: false,
       code: 'REJECTED',
     });
     adapter.close();
 
-    const expired = setup({
-      ...planFixture,
-      expiresAtUtc: '2026-10-10T11:00:00.000Z',
-    });
+    const expired = setup(
+      makePlan({
+        expiresAtUtc: '2026-10-10T11:00:00.000Z',
+        approvedAtUtc: '2026-10-10T10:59:00.000Z',
+      }),
+    );
     expect(
       await expired.adapter.submitApprovedOrder(requestFixture),
     ).toMatchObject({ ok: false, code: 'EXPIRED' });
@@ -266,7 +337,7 @@ describe('SQLite paper execution adapter', () => {
     expect(
       successfulData(await adapter.requestCancel(requestFixture.clientOrderId))
         .status,
-    ).toBe('CANCELED');
+    ).toBe('CANCEL_REQUESTED');
     expect(
       successfulData(
         await adapter.findOrderByClientId(requestFixture.clientOrderId),
