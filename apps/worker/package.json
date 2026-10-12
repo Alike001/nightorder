@@ -6,8 +6,14 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsx watch src/index.ts",
+    "start:telegram": "NIGHTORDER_START=1 tsx src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nightorder/domain": "workspace:*",
+    "@nightorder/telegram": "workspace:*",
+    "@nightorder/tracing": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6"

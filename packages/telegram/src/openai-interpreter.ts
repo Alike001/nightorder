@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { zodTextFormat } from 'openai/helpers/zod';
+import { zodResponseFormat, zodTextFormat } from 'openai/helpers/zod';
 import {
   instructionProposalSchema,
   type InstructionInterpreter,
@@ -24,27 +24,72 @@ export interface OpenAIInterpreterOptions {
   readonly apiKey: string;
   readonly model: string;
   readonly client?: OpenAI;
+  readonly provider?: 'OPENAI' | 'GEMINI';
 }
 
 /** Real LLM adapter. The deterministic workflow revalidates every returned field. */
 export class OpenAIInstructionInterpreter implements InstructionInterpreter {
   private readonly client: OpenAI;
   private readonly model: string;
+  private readonly provider: 'OPENAI' | 'GEMINI';
 
   constructor(options: OpenAIInterpreterOptions) {
     if (options.apiKey.trim().length === 0) {
-      throw new Error('An OpenAI API key is required');
+      throw new Error('An API key is required for the selected AI provider');
     }
     if (options.model.trim().length === 0) {
-      throw new Error('An OpenAI model is required');
+      throw new Error('An AI model name is required');
     }
-    this.client = options.client ?? new OpenAI({ apiKey: options.apiKey });
+    this.provider = options.provider ?? 'OPENAI';
+    this.client =
+      options.client ??
+      new OpenAI({
+        apiKey: options.apiKey,
+        ...(this.provider === 'GEMINI'
+          ? {
+              baseURL:
+                'https://generativelanguage.googleapis.com/v1beta/openai/',
+            }
+          : {}),
+      });
     this.model = options.model;
   }
 
   async interpret(
     context: InterpretationContext,
   ): Promise<InstructionProposal> {
+    if (this.provider === 'GEMINI') {
+      const completion = await this.client.chat.completions.parse({
+        model: this.model,
+        messages: [
+          { role: 'system', content: INTERPRETER_INSTRUCTIONS },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              nowUtc: context.nowUtc,
+              conversation: context.messages,
+            }),
+          },
+        ],
+        response_format: zodResponseFormat(
+          instructionProposalSchema,
+          'nightorder_trade_instruction',
+        ),
+      });
+      const choice = completion.choices[0];
+      if (
+        !choice ||
+        choice.finish_reason !== 'stop' ||
+        choice.message.refusal ||
+        choice.message.parsed == null
+      ) {
+        throw new Error(
+          'Gemini did not return a complete validated instruction',
+        );
+      }
+      return instructionProposalSchema.parse(choice.message.parsed);
+    }
+
     const response = await this.client.responses.parse({
       model: this.model,
       instructions: INTERPRETER_INSTRUCTIONS,
