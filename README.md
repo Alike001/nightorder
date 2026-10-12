@@ -62,6 +62,20 @@ pnpm test
 pnpm proof:runs
 ```
 
+### Judge quickstart
+
+From a clean checkout, judges can independently run the repository's deterministic verification without Telegram, Gemini, Binance credentials, Neatlogs access, or a cfo.ai account:
+
+```bash
+git clone https://github.com/Alike001/nightorder.git
+cd nightorder
+pnpm install --frozen-lockfile
+pnpm test
+pnpm proof:runs
+```
+
+`pnpm test` runs the workspace tests. `pnpm proof:runs` creates three reproducible SQLite PAPER fixture proofs: authorized submission, refusal outside the approved execution limit, and recovery after a scripted post-commit timeout. These do **not** exercise Telegram transport, live Gemini inference, or an actual ambiguous live incident. The October 12 capture described above is separate live application evidence: real Telegram and Gemini instruction handling, a live public quote, and a guarded PAPER order accepted as `OPEN / ACKNOWLEDGED / NEW`. That order was **not filled**. The proof runner refreshes timestamps and generated IDs in `evidence/runs/`; inspect its output as a run record and do not treat those generated IDs as stable references.
+
 The proof runner uses fixtures and does not call Telegram or Gemini. For the **private live PAPER application**, provision your own Telegram token, Gemini key and Neatlogs project key, and set the following in a private file outside the Git repository:
 
 ```text
@@ -92,15 +106,15 @@ Never commit `.env`, SQLite database files, auth tokens, AWS keys or private Ent
 
 ### Judge access
 
-The current Telegram interface uses a **single-server-side-user allowlist**. Judges cannot access a private trader's bot through their own Telegram accounts. For independent testing, clone the public repository and run `pnpm proof:runs`, inspect the recorded demo and actual Neatlogs trace screenshots/links. Do not remove the allowlist or reuse the owner's balance/database as a shortcut to multi-user access. An isolated judge sandbox is future work.
+The current Telegram interface uses a **single-server-side-user allowlist**. Judges cannot access the private bot using their own Telegram accounts; the owner must not share their token, user ID, or private database. Judges can verify the public code and fixture proofs using the quickstart above. The live Telegram screenshots and Neatlogs screenshots are submission attachments, not public dashboard URLs in this repository. An isolated judge sandbox is future work.
 
 ## neatHack partner integrations
 
 | Partner | Genuine role | Evidence |
 | --- | --- | --- |
-| **Neatlogs** | Semantic WORKFLOW/AGENT/TOOL/GUARDRAIL tracing in Telegram and PAPER runtime, sensitive inputs masked; fixture-based numerical evaluation harness. | [Implementation and setup](packages/tracing), live app dashboard trace evidence provided in submission. |
-| **Entire** | Real Codex-assisted development checkpoints, session context and code provenance. | [Checkpoint integration PR #14](https://github.com/Alike001/nightorder/pull/14), [checkpoint notes](https://github.com/Alike001/nightorder/blob/feat/entire-checkpoints/evidence/ENTIRE.md). The underlying Entire checkpoint repository is private unless access is granted. |
-| **cfo.ai** | Actual 12-month pricing, usage cost, gross margin and runway model, with hypothetical $19/$49 subscriptions and three financial scenarios. | Export/screenshots with submission; **forecasts are assumptions, not earned revenue**. |
+| **Neatlogs** | Semantic WORKFLOW/AGENT/TOOL/GUARDRAIL tracing in Telegram and PAPER runtime, sensitive inputs masked; fixture-based numerical evaluation harness. | [Integration code and setup](packages/tracing). The team supplied genuine screenshots of `paper.runtime.poll` and ingestion for the submission; there is no public trace URL in this repository. |
+| **Entire** | Real Codex-assisted development checkpoints, session context and code provenance. | [Public checkpoint notes on `main`](https://github.com/Alike001/nightorder/blob/main/evidence/ENTIRE.md). The underlying Entire checkpoint repository is private unless access is granted. |
+| **cfo.ai** | A planning-input draft for a hypothetical subscription model, with explicit assumptions and exclusions. | [Draft inputs](business/cfo-ai-model-draft.md). No NightOrder cfo.ai project or export is available as evidence; projections are not actual revenue or validated forecasts. |
 
 Entire is **not** a Telegram notification provider. cfo.ai is **not** a real-time trading risk oracle.
 
@@ -117,6 +131,6 @@ Entire is **not** a Telegram notification provider. cfo.ai is **not** a real-tim
 
 Team Bravo: two independent blockchain-development trainees at Web3Bridge, one Physics graduate and one final-year Physics student at Lagos State University. Built for neatHack 2026.
 
-- **[Integrated release PR #31](https://github.com/Alike001/nightorder/pull/31)** (until merged, use `feat/nightorder-release`, not the starter on `main`)
+- The integrated release is on [`main`](https://github.com/Alike001/nightorder/tree/main) (release PRs [#31](https://github.com/Alike001/nightorder/pull/31) and [#32](https://github.com/Alike001/nightorder/pull/32) are merged).
 - [Product and scope](docs/01_PRODUCT_AND_SCOPE.md) · [Architecture and safety](docs/03_ARCHITECTURE_AND_SAFETY.md) · [Proof plan](docs/05_TEST_AND_PROOF.md) · [Submission and sponsor guide](docs/06_SPONSORS_AND_SUBMISSION.md)
 - [neatHack 2026](https://neatlogs.com/hackathon)

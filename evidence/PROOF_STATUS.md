@@ -1,6 +1,6 @@
 # P0 proof run status
 
-**Generated:** 2026-10-10 · **Classification:** local PAPER integration evidence with deterministic fixtures. These files do not represent production trades or live market activity.
+**Last reproducibility check:** 2026-10-12 · **Classification:** local PAPER integration evidence with deterministic fixtures. These files do not represent production trades or live market activity. The integrated Telegram/live-market worker is described separately in the root README; these three records remain fixture proofs.
 
 Reproduce and refresh the sanitized records with:
 
@@ -18,12 +18,11 @@ The JSON records include the actual local SQLite order IDs and checks from this 
 
 ## Remaining gates for Issue #12
 
-- Telegram instruction/approval/cancellation flow is not integrated.
-- The standalone `packages/verifier` implementation is not wired; the records use a local journal readback check.
-- No live OpenAI recovery run is claimed. `OPENAI_API_KEY` and a selected diagnostic model were not available for this run.
-- No Neatlogs project trace or same-fixture before/after evaluation is included. In-memory events are not Neatlogs evidence.
-- Entire checkpoint evidence exists separately in [PR #14](https://github.com/Alike001/nightorder/pull/14).
-- cfo.ai model inputs are drafted in [PR #21](https://github.com/Alike001/nightorder/pull/21), but there is no cfo.ai project or export yet.
-- A <=3 minute demo and final public submission do not exist yet.
+- These fixture records do not exercise Telegram transport, live Gemini inference, or live-model recovery. A separate October 12 live PAPER capture is summarized in the root README.
+- The run-c diagnostic model is scripted; its outcome is not a live incident. It tests recovery behavior against persisted SQLite evidence.
+- These records do not include Neatlogs dashboard traces or a before/after evaluation. The team supplied genuine Neatlogs screenshots separately; no public trace URL is included here.
+- [Entire checkpoint notes](ENTIRE.md) document a real Codex session and checkpoint; the underlying Entire project is private.
+- cfo.ai inputs remain a planning draft in [business/cfo-ai-model-draft.md](../business/cfo-ai-model-draft.md); there is no cfo.ai project/export.
+- Demo/video and submission completion are tracked in Issue #12; fixture proofs alone do not complete that issue.
 
 This PR advances the local proof runner and keeps Issue #12 open until the missing integration and sponsor artifacts are actually available.

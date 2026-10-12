@@ -1,6 +1,6 @@
 # Entire setup evidence
 
-- **Branch:** `feat/entire-checkpoints`
+- **Public evidence note:** maintained on `main` at [`evidence/ENTIRE.md`](https://github.com/Alike001/nightorder/blob/main/evidence/ENTIRE.md). The underlying checkpoint repository remains private.
 - **Codex integration:** Entire is enabled for Codex. The repository has Codex hooks configured, and `entire status` reports `Agents · Codex`.
 - **Shared repository default:** Checkpoint pushing is disabled to keep agent transcripts off the public GitHub `origin`.
 - **Private checkpoint repository:** [NightOrder on Entire](https://entire.io/et/nightorder/nightorder) (`/et/nightorder/nightorder`, private).
