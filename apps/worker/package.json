@@ -7,10 +7,14 @@
     "build": "tsc --noEmit",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run --root ../..",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start:telegram": "NIGHTORDER_START=1 tsx src/index.ts"
   },
   "dependencies": {
-    "@nightorder/quotes": "workspace:*"
+    "@nightorder/quotes": "workspace:*",
+    "@nightorder/domain": "workspace:*",
+    "@nightorder/telegram": "workspace:*",
+    "@nightorder/tracing": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6"

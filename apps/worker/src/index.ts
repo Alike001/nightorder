@@ -88,8 +88,21 @@ export async function main(): Promise<void> {
 }
 
 if (
+  process.env.NIGHTORDER_START !== '1' &&
   process.argv[1] &&
   import.meta.url === new URL(`file://${process.argv[1]}`).href
 ) {
   void main();
+}
+
+// Telegram is a separately selected worker mode.
+if (process.env.NIGHTORDER_START === '1') {
+  void import('./live-telegram.js')
+    .then(({ startNightOrderTelegram }) => startNightOrderTelegram())
+    .catch(() => {
+      console.error(
+        'NIGHTORDER_WORKER_START_FAILED: check environment and local configuration',
+      );
+      process.exitCode = 1;
+    });
 }
