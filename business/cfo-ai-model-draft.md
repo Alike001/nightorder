@@ -4,6 +4,24 @@
 
 **Model date:** 2026-10-10 · **Currency:** USD · **Product:** subscription software for human-approved BTCUSDT paper-order monitoring and evidence. No funded trading, execution fees, returns, or trading profits are modeled.
 
+## Submitted cfo.ai scenario
+
+The public cfo.ai model is the current submission model. Its 12-month planning horizon is October 2026 through September 2027, with $19 Individual and $49 Pro tiers. All inputs and outputs are hypothetical: NightOrder has no paying customers or operating history.
+
+Current model controls shown in the public export include **$25,000 illustrative starting cash**, **$4,000/month founder compensation**, **$300/month fixed service infrastructure**, **$750/month reliability and security**, **$250/month administration**, and **$1,500/month marketing**. These replace the simpler cost and cash assumptions in the preliminary repository scenario below for submission planning.
+
+| Exported scenario | 12-month revenue | Operating profit | Gross margin | Month-12 customers | Month-12 MRR | Month-12 cash | Lowest cash | Operating break-even |
+| ----------------- | ---------------: | ---------------: | -----------: | -----------------: | -----------: | ------------: | ----------: | -------------------- |
+| Main              |       $83,307.22 |      -$18,594.36 |        71.3% |            484.108 |   $13,083.89 |     $6,405.64 |      $85.87 | June 2027            |
+| Conservative      |       $40,891.28 |      -$55,677.64 |        54.6% |            231.428 |    $6,202.26 |   -$30,677.64 | -$30,677.64 | Not in horizon       |
+| Optimistic        |      $141,842.77 |       $27,824.71 |        74.6% |            839.559 |   $22,768.92 |    $52,824.71 |  $10,798.77 | February 2027        |
+
+In the main scenario, the export shows a February 2027 reserve breach, no cash-exhaustion crossing within the horizon, and June 2027 operating break-even. The conservative scenario crosses cash exhaustion in February 2027. These outputs are scenario calculations, not commitments, actual revenue, or evidence of traction.
+
+## Preliminary repository scenario (superseded for submission planning)
+
+The calculations below preserve the October 10 preliminary sensitivity model that existed before the cfo.ai project was built. They use $10,000 opening cash, unpaid founders, a simplified $37.66 monthly infrastructure estimate, and a separate assumed cfo.ai subscription outflow. They are retained for provenance and must not be combined with, or presented as, the current exported cfo.ai scenario above.
+
 ## Executive case
 
 Test a low-cost subscription for a small group of self-directed traders who want an approved paper instruction monitored while they are offline, with a durable order journal and evidence-backed status. The first year is a validation exercise. Prices, conversion, retention, support burden, and willingness to pay are hypotheses; none have been validated with customers. This eventual multi-customer SaaS thesis is beyond the current P0 prototype's one-owner scope and would require separate product, security, and legal review before launch.

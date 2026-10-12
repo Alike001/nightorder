@@ -1,9 +1,10 @@
 # NightOrder final demo script
 
-**Target runtime:** 2:50 (170 seconds)  
-**Audience:** neatHack judges  
-**Source:** integrated `main`, `89a89701d19ce5d53c9c1584e7a0da500ccd0135`  
-**Mode:** PAPER only. No real funds, fills, or profits are claimed.
+- **Original storyboard target:** 2:50 (170 seconds)
+- **Submitted cut:** 2:55
+- **Audience:** neatHack judges
+- **Historical recording source:** integrated `main`, `8c383ccf54da55e08939173d6c8fb4bc3bd48515`
+- **Mode:** PAPER only. No real funds, fills, or profits are claimed.
 
 ## Evidence rules for recording
 
