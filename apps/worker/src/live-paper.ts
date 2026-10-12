@@ -121,8 +121,11 @@ export async function startNightOrderPaper(
       ) {
         throw new Error('Watcher requires a valid approved PAPER plan');
       }
+      const { quoteBudgetUsdt, baseQuantityBtc, ...requiredPlan } = plan;
       watcher.saveArmedPlan({
-        ...plan,
+        ...requiredPlan,
+        ...(quoteBudgetUsdt !== undefined ? { quoteBudgetUsdt } : {}),
+        ...(baseQuantityBtc !== undefined ? { baseQuantityBtc } : {}),
         state: 'ARMED',
         approvedAtUtc: plan.approvedAtUtc,
       });
