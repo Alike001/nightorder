@@ -73,7 +73,10 @@ export interface InstructionInterpreter {
   interpret(context: InterpretationContext): Promise<InstructionProposal>;
 }
 
-export interface TelegramPlanRepository extends PlanRepository {
+export interface TelegramPlanRepository extends Omit<
+  PlanRepository,
+  'markNeedsHuman'
+> {
   listPlansByOwner(ownerId: string): Promise<readonly TradePlan[]>;
   saveTransition(
     plan: TradePlan,
