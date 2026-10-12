@@ -39,6 +39,9 @@ importers:
       '@nightorder/quotes':
         specifier: workspace:*
         version: link:../../packages/quotes
+      '@nightorder/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@nightorder/telegram':
         specifier: workspace:*
         version: link:../../packages/telegram

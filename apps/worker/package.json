@@ -14,7 +14,8 @@
     "@nightorder/quotes": "workspace:*",
     "@nightorder/domain": "workspace:*",
     "@nightorder/telegram": "workspace:*",
-    "@nightorder/tracing": "workspace:*"
+    "@nightorder/tracing": "workspace:*",
+    "@nightorder/runtime": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6"
