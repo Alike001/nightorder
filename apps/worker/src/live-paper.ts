@@ -1,5 +1,6 @@
 /** PAPER execution worker. Telegram and this worker share one durable plan store. */
 import { mkdirSync } from 'node:fs';
+import { hasValidPlanHash } from '@nightorder/domain';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { GeminiDiagnosticModel } from './gemini-diagnostic.js';
@@ -9,6 +10,7 @@ import { SqlitePaperExecutionAdapter } from '@nightorder/execution';
 import {
   IntegratedTradingRuntime,
   SqliteTradingPlanRepository,
+  type PersistentWatcher,
 } from '@nightorder/runtime';
 import {
   initializeNeatlogsFromEnvironment,
@@ -99,7 +101,40 @@ export async function startNightOrderPaper(
     databasePath: config.databasePath,
   });
   const watcher = new SqliteArmedPlanStore(config.watcherPath);
-  const execution = new SqlitePaperExecutionAdapter(repository, {
+  // Convert synchronous persisted evidence to the executor's async reader.
+  const approvedPlanReader = {
+    loadPlan: (planId: string) => repository.loadPlan(planId),
+    loadPlanEvidence: async (planId: string) =>
+      repository.loadPlanEvidence(planId),
+    loadAuthorizationEvidence: async (planId: string) =>
+      repository.loadAuthorizationEvidence(planId),
+  };
+
+  // Enforce the watcher contract at the runtime boundary.
+  const guardedWatcher: PersistentWatcher = {
+    saveArmedPlan: (plan) => {
+      if (
+        plan.state !== 'ARMED' ||
+        plan.mode !== 'PAPER' ||
+        !plan.approvedAtUtc ||
+        !hasValidPlanHash(plan)
+      ) {
+        throw new Error('Watcher requires a valid approved PAPER plan');
+      }
+      watcher.saveArmedPlan({
+        ...plan,
+        state: 'ARMED',
+        approvedAtUtc: plan.approvedAtUtc,
+      });
+    },
+    listArmedPlans: () => watcher.listArmedPlans(),
+    evaluateQuote: (quote, maxAgeMs, now) =>
+      watcher.evaluateQuote(quote, maxAgeMs, now),
+    getState: (planId) => watcher.getState(planId),
+    close: () => watcher.close(),
+  };
+
+  const execution = new SqlitePaperExecutionAdapter(approvedPlanReader, {
     databasePath: config.paperPath,
     initialBalances: { USDT: config.initialUsdt, BTC: config.initialBtc },
   });
@@ -112,7 +147,7 @@ export async function startNightOrderPaper(
   const runtime = new IntegratedTradingRuntime({
     ownerId: config.ownerId,
     plans: repository,
-    watcher,
+    watcher: guardedWatcher,
     execution,
     market,
     model: new GeminiDiagnosticModel(config.geminiKey, config.geminiModel),
