@@ -1,0 +1,38 @@
+# NightOrder final demo script
+
+**Target runtime:** 2:50 (170 seconds)  
+**Audience:** neatHack judges  
+**Source:** integrated `main`, `89a89701d19ce5d53c9c1584e7a0da500ccd0135`  
+**Mode:** PAPER only. No real funds, fills, or profits are claimed.
+
+## Evidence rules for recording
+
+- The Telegram, public-quote, PAPER-worker, and Neatlogs images are authentic team captures from October 12, 2026. Present them as captured evidence stills, not as a new live interaction. Source pack: `NightOrder-demo-evidence-pack/01_real_telegram_plan_preview.png` through `06_neatlogs_ingestion_list.png`.
+- Crop and redact personal identifiers and unrelated screen content before public playback. Specifically mask the Telegram owner ID in capture 01; hide local username, home-directory paths, and environment-file paths in capture 04; and crop the browser chrome from the Neatlogs captures to remove tabs, account details, private organization/project IDs, and trace URLs. Do not alter order values, statuses, evidence, or trace content. Keep screenshot text large enough to read.
+- Fixture footage must carry the persistent label **“Reproducible fixture proof — not a live incident.”** Never splice fixture output into the live Telegram sequence as if it happened in that session.
+- For verification, show the real persisted JSON fields and verifier result from `evidence/runs/`. Do not imply a fixture result was produced by Gemini or a live incident.
+- Entire’s public note documents a real checkpoint, but its project is private. The cfo.ai evidence is a planning draft only; there is no NightOrder cfo.ai project/export. Say this plainly on screen.
+- Put captions in the bottom safe band, clear of the evidence image, with a dark translucent backing. Pause on the preview digest and the `OPEN / ACKNOWLEDGED / NEW` status long enough to read them.
+
+## Timed storyboard and narration
+
+| Time | Picture and action | Narration / on-screen text |
+| --- | --- | --- |
+| 00:00–00:12 | Restrained NightOrder title animation. No fabricated market chart or dashboard. | “Markets don't wait for you to wake up. NightOrder follows the trade conditions you approve, then shows what actually happened.” On screen: **Set your trade. Rest. Verify the outcome.** |
+| 00:12–00:30 | Simple animated flow, marked **Conceptual overview**: Trader → Telegram → Gemini interpretation → exact approval → public-price watcher → guarded PAPER order → persisted verification. | “This is a Telegram-first, BTC/USDT paper-trading agent. Gemini interprets an instruction; deterministic checks and your exact approval set the limits. The worker watches public prices and can submit only within those limits.” |
+| 00:30–00:55 | Show authentic `01_real_telegram_plan_preview.png`; slowly frame the BTC/USDT BUY plan, 10 USDT cap, trigger and worst execution price, revision, digest, and expiry. Label **Telegram capture · Oct 12**. | “In the October 12 test, the owner asked for a BTC/USDT buy with a maximum budget of 10 USDT, a best-ask trigger at or below 83,000, and a worst execution price of 83,000. The preview shows the exact terms and approval digest.” |
+| 00:55–01:16 | Show `02_telegram_confirm_and_open_order.png`. First hold on `/confirm`, then move to `/status`. Do not hide status details. | “The owner explicitly confirmed that plan. Confirmation armed monitoring; it did not submit an order immediately. The worker later reported an accepted PAPER order. Telegram shows `OPEN`, `ACKNOWLEDGED / NEW`.” |
+| 01:16–01:34 | Briefly show `03_live_price_command.png`, then `04_real_paper_worker_result.png`. Keep the actual `LIVE_PUBLIC`, `ARMED`, and `SUBMITTED` values legible. | “The accompanying capture shows a public BTC/USDT quote and the actual worker result: `LIVE_PUBLIC`, `ARMED`, `SUBMITTED`. These are historical captures of the team’s PAPER runtime.” |
+| 01:34–01:43 | Freeze on the Telegram order status; display a clear lower-third. | “`OPEN` and `NEW` mean accepted and resting, not filled. No real funds were used, and no fill or profit is claimed.” On screen: **PAPER · OPEN / NEW · NOT FILLED** |
+| 01:43–02:07 | Switch to repository proof output / sanitized `run-b.json`, then `run-c.json`. Keep fixture label continuously visible. Show run B’s zero-order refusal; then run C’s injected timeout, one persisted order, read-only journal/client-ID investigation, and no duplicate. | “Now these next results are deterministic fixtures, not live events. The unsafe-price scenario refuses execution and creates zero orders. The timeout scenario injects a failure after the PAPER journal commit. Recovery checks the journal and client order ID instead of retrying blindly.” |
+| 02:07–02:22 | Show `run-c.json` and its `independentVerifier` block, then a close crop of the check names and `VERIFIED`. Keep fixture label visible. | “The independent verifier computes its result from persisted plan, attempt, and order evidence. In this fixture it verifies the recorded PAPER order, which remains `NEW` with zero filled quantity. This does not demonstrate live model-driven recovery.” |
+| 02:22–02:40 | Three honest sponsor cards. Neatlogs: `05_neatlogs_trace_detail.png` and `06_neatlogs_ingestion_list.png`, mark actual trace and ingestion, not proof of fill. Entire: public `evidence/ENTIRE.md` note and checkpoint hash, mark project private. cfo.ai: show the draft’s first page/status only. | “Neatlogs captured a real `paper.runtime.poll` trace; that proves observability, not an order fill. Entire records a real Codex development checkpoint, while its project remains private. We have a cfo.ai planning-input draft, but no cfo.ai project or export yet.” |
+| 02:40–02:50 | NightOrder close card with Team Bravo and repository link. | “NightOrder: set your trade, rest, verify the outcome. Team Bravo. PAPER trading only—no real funds.” On screen: `https://github.com/Alike001/nightorder` |
+
+## Capture checklist
+
+1. Use the provided screenshots for the October 12 evidence sequence; do not reenact or invent Telegram messages. If recording a fresh session, verify credentials and use a disposable PAPER database, then label newly captured footage with its actual date.
+2. Run `pnpm proof:runs` only for the three fixture scenes. Confirm `quoteSource: TEST_FIXTURE`, the scripted model label, and the verifier JSON before capture. Restore generated evidence files afterward unless the team intentionally wants to publish the new run IDs.
+3. Use readable terminal zoom (at least 24 px equivalent at 1080p), hide shell prompts containing local paths, and never show `.env`, keys, personal IDs, or private chats.
+4. Keep the fixture disclaimer visible through refusal, timeout recovery, and verifier scenes. Avoid implying Neatlogs, Entire, or cfo.ai provide trading authorization or execution safety.
+5. Review the full render with sound and inspect opening, Telegram preview, accepted-order status, fixture refusal, recovery, sponsor cards, and closing frames before calling the demo final.

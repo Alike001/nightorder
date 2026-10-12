@@ -76,6 +76,8 @@ pnpm proof:runs
 
 `pnpm test` runs the workspace tests. `pnpm proof:runs` creates three reproducible SQLite PAPER fixture proofs: authorized submission, refusal outside the approved execution limit, and recovery after a scripted post-commit timeout. These do **not** exercise Telegram transport, live Gemini inference, or an actual ambiguous live incident. The October 12 capture described above is separate live application evidence: real Telegram and Gemini instruction handling, a live public quote, and a guarded PAPER order accepted as `OPEN / ACKNOWLEDGED / NEW`. That order was **not filled**. The proof runner refreshes timestamps and generated IDs in `evidence/runs/`; inspect its output as a run record and do not treat those generated IDs as stable references.
 
+The timed recording plan is in [demo/final-demo-script.md](demo/final-demo-script.md). It uses the October 12 evidence captures and marks fixture scenes and sponsor evidence gaps explicitly.
+
 The proof runner uses fixtures and does not call Telegram or Gemini. For the **private live PAPER application**, provision your own Telegram token, Gemini key and Neatlogs project key, and set the following in a private file outside the Git repository:
 
 ```text

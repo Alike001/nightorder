@@ -25,4 +25,4 @@ The JSON records include the actual local SQLite order IDs and checks from this 
 - cfo.ai inputs remain a planning draft in [business/cfo-ai-model-draft.md](../business/cfo-ai-model-draft.md); there is no cfo.ai project/export.
 - Demo/video and submission completion are tracked in Issue #12; fixture proofs alone do not complete that issue.
 
-This PR advances the local proof runner and keeps Issue #12 open until the missing integration and sponsor artifacts are actually available.
+The integrated proof runner is on `main`. Issue #12 remains open until the remaining demo review, cfo.ai project/export, and public submission evidence are complete.

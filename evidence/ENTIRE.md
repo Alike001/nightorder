@@ -1,7 +1,7 @@
 # Entire setup evidence
 
 - **Public evidence note:** maintained on `main` at [`evidence/ENTIRE.md`](https://github.com/Alike001/nightorder/blob/main/evidence/ENTIRE.md). The underlying checkpoint repository remains private.
-- **Codex integration:** Entire is enabled for Codex. The repository has Codex hooks configured, and `entire status` reports `Agents · Codex`.
+- **Codex integration evidence:** A real Codex session and checkpoint were captured and verified in an Entire-configured local environment. The current public `main` contains this evidence note but does not contain the `.codex/hooks.json` or `.entire/settings.json` setup files; collaborators need a separately configured local Entire CLI to capture checkpoints.
 - **Shared repository default:** Checkpoint pushing is disabled to keep agent transcripts off the public GitHub `origin`.
 - **Private checkpoint repository:** [NightOrder on Entire](https://entire.io/et/nightorder/nightorder) (`/et/nightorder/nightorder`, private).
 - **Codex session:** [Initial Entire setup session](https://entire.io/et/nightorder/nightorder/session/01a12586-20c2-76a1-8424-6305634bb1d7) (`01a12586-20c2-76a1-8424-6305634bb1d7`).
