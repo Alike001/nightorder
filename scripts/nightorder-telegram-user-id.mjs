@@ -1,3 +1,4 @@
+/* global process, console, fetch */
 // Prints only sender numeric IDs from the bot's pending private updates.
 // Never prints the bot token, Telegram message content or full API URLs.
 const token = process.env.TELEGRAM_BOT_TOKEN;
