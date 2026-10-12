@@ -6,6 +6,16 @@ NightOrder is a Telegram-first autonomous **PAPER-only** trading agent for BTC/U
 
 **No live-money orders, exchange credentials, custody, leverage, guaranteed returns, or public multi-user trading.**
 
+## neatHack 2026 submission
+
+Team Bravo's submission was received on October 12, 2026.
+
+- [Final X post and 2:55 demo](https://x.com/IamAlikeX/status/2109768092385718293)
+- [Public cfo.ai business model](https://cfo.ai/s/HW7EXJ-uQPEYOLdM), with hypothetical scenarios and no paying-customer actuals
+- [Judge quickstart](#judge-quickstart) and [proof status](evidence/PROOF_STATUS.md), with the underlying [proof records](evidence/runs/)
+
+The submitted live evidence covers Telegram instruction handling, Gemini interpretation, exact human approval, a live public quote, and an accepted PAPER order. The refusal and timeout-recovery scenarios are reproducible fixtures. NightOrder remains PAPER-only: `OPEN / ACKNOWLEDGED / NEW` is an accepted resting order, not a fill, and no real funds or profits are claimed.
+
 ## Watch the actual workflow
 
 1. Send `/new` to the authorized Telegram bot with BTC/USDT, BUY or SELL, exact budget/size, trigger price, worst allowable execution price, and expiry.
@@ -133,6 +143,6 @@ Entire is **not** a Telegram notification provider. cfo.ai is **not** a real-tim
 
 Team Bravo: two independent blockchain-development trainees at Web3Bridge, one Physics graduate and one final-year Physics student at Lagos State University. Built for neatHack 2026.
 
-- The integrated release is on [`main`](https://github.com/Alike001/nightorder/tree/main) (release PRs [#31](https://github.com/Alike001/nightorder/pull/31) and [#32](https://github.com/Alike001/nightorder/pull/32) are merged).
+- The integrated release is on [`main`](https://github.com/Alike001/nightorder/tree/main) (release and evidence PRs [#31](https://github.com/Alike001/nightorder/pull/31), [#32](https://github.com/Alike001/nightorder/pull/32), and [#33](https://github.com/Alike001/nightorder/pull/33) are merged).
 - [Product and scope](docs/01_PRODUCT_AND_SCOPE.md) · [Architecture and safety](docs/03_ARCHITECTURE_AND_SAFETY.md) · [Proof plan](docs/05_TEST_AND_PROOF.md) · [Submission and sponsor guide](docs/06_SPONSORS_AND_SUBMISSION.md)
 - [neatHack 2026](https://neatlogs.com/hackathon)
