@@ -1,0 +1,28 @@
+{
+  "generatedAtUtc": "2026-10-12T10:36:22.950Z",
+  "scenario": "TRIGGER_CROSSED_OUTSIDE_APPROVED_LIMIT",
+  "result": "PASS",
+  "quoteSource": "TEST_FIXTURE",
+  "modelBehavior": "not used; deterministic guard scenario",
+  "runtimeResult": {
+    "quoteKind": "TEST_FIXTURE",
+    "quoteEvidenceId": "fixture-quote-scripted-proof-fixture",
+    "plans": [
+      {
+        "planId": "proof-b-limit-refusal",
+        "outcome": "ARMED",
+        "planState": "ARMED"
+      },
+      {
+        "planId": "proof-b-limit-refusal",
+        "outcome": "BLOCKED",
+        "planState": "TRIGGERED",
+        "reason": "Trigger crossed outside the approved limit; no execution claim was made."
+      }
+    ]
+  },
+  "persistedPlanState": "TRIGGERED",
+  "actualOrderCount": 0,
+  "persistedAttempt": null,
+  "neatlogs": "not connected; in-memory runtime trace sink only"
+}

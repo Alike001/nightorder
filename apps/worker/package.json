@@ -6,8 +6,19 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "vitest run --root ../..",
+    "typecheck": "tsc --noEmit",
+    "start:telegram": "NIGHTORDER_START=1 tsx src/index.ts",
+    "start:paper": "tsx src/live-paper.ts"
+  },
+  "dependencies": {
+    "@nightorder/quotes": "workspace:*",
+    "@nightorder/domain": "workspace:*",
+    "@nightorder/telegram": "workspace:*",
+    "@nightorder/tracing": "workspace:*",
+    "@nightorder/runtime": "workspace:*",
+    "@nightorder/agent": "workspace:*",
+    "@nightorder/execution": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6"

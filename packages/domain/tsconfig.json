@@ -1,8 +1,13 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "noEmit": true,
-    "types": ["node"]
+    "lib": ["ES2022", "ES2022.Intl"],
+    "types": ["node"],
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules", "test"]
 }

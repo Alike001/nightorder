@@ -40,6 +40,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Build workspace packages
+        run: pnpm build
+
       - name: Typecheck
         run: pnpm typecheck
 

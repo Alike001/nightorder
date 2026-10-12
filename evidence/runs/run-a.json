@@ -1,0 +1,81 @@
+{
+  "generatedAtUtc": "2026-10-12T10:36:22.920Z",
+  "scenario": "PERSISTED_APPROVAL_WATCHER_TRIGGER_GUARDED_PAPER_EXECUTION",
+  "result": "PASS",
+  "quoteSource": "TEST_FIXTURE",
+  "modelBehavior": "not used for deterministic execution; scripted quote fixture",
+  "runtimeResult": {
+    "quoteKind": "TEST_FIXTURE",
+    "quoteEvidenceId": "fixture-quote-scripted-proof-fixture",
+    "plans": [
+      {
+        "planId": "proof-a-authorized",
+        "outcome": "ARMED",
+        "planState": "ARMED"
+      },
+      {
+        "planId": "proof-a-authorized",
+        "outcome": "SUBMITTED",
+        "planState": "OPEN",
+        "verification": {
+          "result": "VERIFIED",
+          "checks": {
+            "PLAN_HASH_MATCHES": true,
+            "PLAN_APPROVED": true,
+            "OWNER_AUTHORIZATION_MATCHES": true,
+            "PLAN_NOT_EXPIRED_AT_SUBMISSION": true,
+            "ORDER_ATTEMPT_UNIQUE": true,
+            "ORDER_REQUEST_MATCHES_PLAN": true,
+            "EXECUTION_STATUS_MATCHES": true,
+            "CANCELLATION_STATE_MATCHES": true,
+            "PAPER_EVIDENCE_ONLY": true
+          },
+          "evidenceIds": [
+            "proof-a-authorized",
+            "db8211e9-e325-41eb-8c7c-f249e3160ae6",
+            "424ce462-7096-4c27-8f25-c542d5092975",
+            "21a9f117-9109-4123-b207-25e845478ae3"
+          ]
+        },
+        "orderStatus": "NEW"
+      }
+    ]
+  },
+  "persistedPlanState": "OPEN",
+  "persistedOrder": {
+    "orderId": "21a9f117-9109-4123-b207-25e845478ae3",
+    "planId": "proof-a-authorized",
+    "clientOrderId": "nightorder-proof-a-authorized",
+    "symbol": "BTCUSDT",
+    "side": "BUY",
+    "quantity": "0.00833333",
+    "limitPrice": "60000",
+    "status": "NEW",
+    "filledQuantity": "0",
+    "createdAtUtc": "2026-10-10T12:00:00.000Z",
+    "updatedAtUtc": "2026-10-10T12:00:00.000Z",
+    "requestDigest": "4a7db5032db4debc126d4a50cb5914d4f1d66118cf1b9b19586d39adcd342df0"
+  },
+  "independentVerifier": {
+    "result": "VERIFIED",
+    "checks": {
+      "PLAN_HASH_MATCHES": true,
+      "PLAN_APPROVED": true,
+      "OWNER_AUTHORIZATION_MATCHES": true,
+      "PLAN_NOT_EXPIRED_AT_SUBMISSION": true,
+      "ORDER_ATTEMPT_UNIQUE": true,
+      "ORDER_REQUEST_MATCHES_PLAN": true,
+      "EXECUTION_STATUS_MATCHES": true,
+      "CANCELLATION_STATE_MATCHES": true,
+      "PAPER_EVIDENCE_ONLY": true
+    },
+    "evidenceIds": [
+      "proof-a-authorized",
+      "db8211e9-e325-41eb-8c7c-f249e3160ae6",
+      "424ce462-7096-4c27-8f25-c542d5092975",
+      "21a9f117-9109-4123-b207-25e845478ae3"
+    ]
+  },
+  "actualOrderCount": 1,
+  "neatlogs": "not connected; in-memory runtime trace sink only"
+}

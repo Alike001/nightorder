@@ -3,8 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.12",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.14.0"
   }
 }

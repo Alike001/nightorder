@@ -3,8 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root ../.. packages/agent/src/index.test.ts"
+  },
+  "dependencies": {
+    "@nightorder/domain": "workspace:*",
+    "@nightorder/execution": "workspace:*"
   }
 }
