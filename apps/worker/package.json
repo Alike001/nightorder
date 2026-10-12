@@ -6,8 +6,11 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run",
+    "test": "vitest run --root ../..",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nightorder/quotes": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.20.6"
