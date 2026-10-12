@@ -33,6 +33,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@nightorder/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@nightorder/execution':
+        specifier: workspace:*
+        version: link:../../packages/execution
       '@nightorder/domain':
         specifier: workspace:*
         version: link:../../packages/domain
