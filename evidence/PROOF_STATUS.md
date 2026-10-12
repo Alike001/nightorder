@@ -22,7 +22,7 @@ The JSON records include the actual local SQLite order IDs and checks from this 
 - The run-c diagnostic model is scripted; its outcome is not a live incident. It tests recovery behavior against persisted SQLite evidence.
 - These records do not include Neatlogs dashboard traces or a before/after evaluation. The team supplied genuine Neatlogs screenshots separately; no public trace URL is included here.
 - [Entire checkpoint notes](ENTIRE.md) document a real Codex session and checkpoint; the underlying Entire project is private.
-- cfo.ai inputs remain a planning draft in [business/cfo-ai-model-draft.md](../business/cfo-ai-model-draft.md); there is no cfo.ai project/export.
+- The public cfo.ai model and its exports are documented in [business/cfo-ai-model-draft.md](../business/cfo-ai-model-draft.md). They are separate business-planning evidence; this fixture suite does not generate or validate cfo.ai forecasts.
 - Demo/video and submission completion are tracked in Issue #12; fixture proofs alone do not complete that issue.
 
-The integrated proof runner is on `main`. Issue #12 remains open until the remaining demo review, cfo.ai project/export, and public submission evidence are complete.
+The integrated proof runner is on `main`. Issue #12 remains open until the remaining demo review and public submission evidence are complete.
