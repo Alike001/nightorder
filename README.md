@@ -18,11 +18,11 @@ NightOrder is a Telegram-first autonomous **PAPER-only** trading agent for BTC/U
 
 ## Reproducible engineering evidence
 
-| Scenario | Result | Important qualification |
-| --- | --- | --- |
-| [A — authorized PAPER order](evidence/runs/run-a.json) | `PASS`, one order, nine independent persisted-evidence checks passed | Deterministic price fixture |
-| [B — unsafe execution-limit refusal](evidence/runs/run-b.json) | `PASS`, zero orders submitted | Deterministic price fixture |
-| [C — post-commit timeout recovery](evidence/runs/run-c.json) | `PASS`, journal readback, no duplicate | **Scripted model fixture**, not a live Gemini recovery incident |
+| Scenario                                                       | Result                                                               | Important qualification                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [A — authorized PAPER order](evidence/runs/run-a.json)         | `PASS`, one order, nine independent persisted-evidence checks passed | Deterministic price fixture                                     |
+| [B — unsafe execution-limit refusal](evidence/runs/run-b.json) | `PASS`, zero orders submitted                                        | Deterministic price fixture                                     |
+| [C — post-commit timeout recovery](evidence/runs/run-c.json)   | `PASS`, journal readback, no duplicate                               | **Scripted model fixture**, not a live Gemini recovery incident |
 
 [Proof runner summary](evidence/runs/proof-runner.json) explicitly distinguishes fixture-based evidence from live application behavior. The PAPER adapter creates accepted/resting orders; it **does not simulate fills**.
 
@@ -76,7 +76,7 @@ pnpm proof:runs
 
 `pnpm test` runs the workspace tests. `pnpm proof:runs` creates three reproducible SQLite PAPER fixture proofs: authorized submission, refusal outside the approved execution limit, and recovery after a scripted post-commit timeout. These do **not** exercise Telegram transport, live Gemini inference, or an actual ambiguous live incident. The October 12 capture described above is separate live application evidence: real Telegram and Gemini instruction handling, a live public quote, and a guarded PAPER order accepted as `OPEN / ACKNOWLEDGED / NEW`. That order was **not filled**. The proof runner refreshes timestamps and generated IDs in `evidence/runs/`; inspect its output as a run record and do not treat those generated IDs as stable references.
 
-The timed recording plan is in [demo/final-demo-script.md](demo/final-demo-script.md). It uses the October 12 evidence captures and marks fixture scenes and sponsor evidence gaps explicitly.
+The timed recording plan is in [demo/final-demo-script.md](demo/final-demo-script.md). It uses the October 12 evidence captures, clearly marks fixture scenes, and includes the public cfo.ai model.
 
 The proof runner uses fixtures and does not call Telegram or Gemini. For the **private live PAPER application**, provision your own Telegram token, Gemini key and Neatlogs project key, and set the following in a private file outside the Git repository:
 
@@ -112,11 +112,11 @@ The current Telegram interface uses a **single-server-side-user allowlist**. Jud
 
 ## neatHack partner integrations
 
-| Partner | Genuine role | Evidence |
-| --- | --- | --- |
-| **Neatlogs** | Semantic WORKFLOW/AGENT/TOOL/GUARDRAIL tracing in Telegram and PAPER runtime, sensitive inputs masked; fixture-based numerical evaluation harness. | [Integration code and setup](packages/tracing). The team supplied genuine screenshots of `paper.runtime.poll` and ingestion for the submission; there is no public trace URL in this repository. |
-| **Entire** | Real Codex-assisted development checkpoints, session context and code provenance. | [Public checkpoint notes on `main`](https://github.com/Alike001/nightorder/blob/main/evidence/ENTIRE.md). The underlying Entire checkpoint repository is private unless access is granted. |
-| **cfo.ai** | A planning-input draft for a hypothetical subscription model, with explicit assumptions and exclusions. | [Draft inputs](business/cfo-ai-model-draft.md). No NightOrder cfo.ai project or export is available as evidence; projections are not actual revenue or validated forecasts. |
+| Partner      | Genuine role                                                                                                                                       | Evidence                                                                                                                                                                                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Neatlogs** | Semantic WORKFLOW/AGENT/TOOL/GUARDRAIL tracing in Telegram and PAPER runtime, sensitive inputs masked; fixture-based numerical evaluation harness. | [Integration code and setup](packages/tracing). The team supplied genuine screenshots of `paper.runtime.poll` and ingestion for the submission; there is no public trace URL in this repository.                                                                                                          |
+| **Entire**   | Real Codex-assisted development checkpoints, session context and code provenance.                                                                  | [Public checkpoint notes on `main`](https://github.com/Alike001/nightorder/blob/main/evidence/ENTIRE.md). The underlying Entire checkpoint repository is private unless access is granted.                                                                                                                |
+| **cfo.ai**   | A public NightOrder business model with scenario analysis and runway, based on explicitly hypothetical assumptions.                                | [Public cfo.ai model](https://cfo.ai/s/HW7EXJ-uQPEYOLdM) · [Documented assumptions and limitations](business/cfo-ai-model-draft.md). The project includes Assumptions, Operating Model, Financial Model, and Decision Dashboard exports. These projections are not actual revenue or validated forecasts. |
 
 Entire is **not** a Telegram notification provider. cfo.ai is **not** a real-time trading risk oracle.
 
