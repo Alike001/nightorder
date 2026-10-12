@@ -2,7 +2,7 @@
 
 **Set your trade. Rest. Verify the outcome.**
 
-This is the single-source-of-truth **planning and team-coordination starter**, not a finished agent. Competition application code must be written during neatHack. Use the README and issue bodies to coordinate work, then implement and test each gate.
+NightOrder is a working, Telegram-first, BTC/USDT PAPER-trading agent. In an October 12 live test, Gemini interpreted a trading instruction, the user approved its exact digest, and the runtime processed a public market quote and reported SUBMITTED. Telegram readback showed an OPEN simulated order, not a fill. Local fixture tests also cover unsafe-trade refusal and timeout recovery. Live-money execution, multi-asset trading and public multi-user access are not supported. Competition application code must be written during neatHack. Use the README and issue bodies to coordinate work, then implement and test each gate.
 
 ## What we locked
 - **Product**: a Telegram-first, autonomous **paper-trading** instruction supervisor. An authorized trader chooses asset, BUY/SELL, exact size, trigger, worst allowed price, and expiry. The app confirms their exact plan, monitors fresh market quotes, submits only guarded test/paper orders, handles ambiguous outcomes, verifies and reports truthfully.
