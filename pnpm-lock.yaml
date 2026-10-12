@@ -74,6 +74,25 @@ importers:
 
   packages/quotes: {}
 
+  packages/runtime:
+    dependencies:
+      '@nightorder/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@nightorder/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@nightorder/execution':
+        specifier: workspace:*
+        version: link:../execution
+      '@nightorder/quotes':
+        specifier: workspace:*
+        version: link:../quotes
+    devDependencies:
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.15
+
   packages/telegram: {}
 
   packages/tracing: {}

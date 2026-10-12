@@ -1,11 +1,12 @@
 {
-  "generatedAtUtc": "2026-10-10T12:49:37.093Z",
+  "generatedAtUtc": "2026-10-12T10:36:23.031Z",
   "runs": ["run-a.json", "run-b.json", "run-c.json"],
   "result": "PASS",
-  "scope": "local PAPER component integration using deterministic fixtures",
+  "scope": "integrated SQLite plan, watcher, PAPER execution, recovery and persisted-evidence verification; test fixtures only",
+  "modelDrivenBehavior": "not exercised; recovery uses an explicitly scripted model fixture",
   "notProvided": [
     "Telegram end-to-end flow",
-    "live model inference",
+    "live Gemini/model inference",
     "Neatlogs dashboard traces and before/after evaluation",
     "cfo.ai project/export",
     "demo video and public submission"

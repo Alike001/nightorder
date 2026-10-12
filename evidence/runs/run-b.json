@@ -1,15 +1,28 @@
 {
-  "generatedAtUtc": "2026-10-10T12:49:37.064Z",
-  "scenario": "UNSAFE_LIMIT_REFUSAL",
-  "mode": "PAPER",
+  "generatedAtUtc": "2026-10-12T10:36:22.950Z",
+  "scenario": "TRIGGER_CROSSED_OUTSIDE_APPROVED_LIMIT",
   "result": "PASS",
-  "refusalCode": "REJECTED",
-  "checks": {
-    "guardRejected": true,
-    "noOrderWritten": true,
-    "noAttemptWritten": true,
-    "balanceUnchanged": true
+  "quoteSource": "TEST_FIXTURE",
+  "modelBehavior": "not used; deterministic guard scenario",
+  "runtimeResult": {
+    "quoteKind": "TEST_FIXTURE",
+    "quoteEvidenceId": "fixture-quote-scripted-proof-fixture",
+    "plans": [
+      {
+        "planId": "proof-b-limit-refusal",
+        "outcome": "ARMED",
+        "planState": "ARMED"
+      },
+      {
+        "planId": "proof-b-limit-refusal",
+        "outcome": "BLOCKED",
+        "planState": "TRIGGERED",
+        "reason": "Trigger crossed outside the approved limit; no execution claim was made."
+      }
+    ]
   },
+  "persistedPlanState": "TRIGGERED",
   "actualOrderCount": 0,
-  "neatlogs": "not connected in this proof runner"
+  "persistedAttempt": null,
+  "neatlogs": "not connected; in-memory runtime trace sink only"
 }

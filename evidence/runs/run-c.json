@@ -1,38 +1,92 @@
 {
-  "generatedAtUtc": "2026-10-10T12:49:37.091Z",
-  "scenario": "COMMIT_THEN_TIMEOUT_RECOVERY",
-  "mode": "PAPER",
+  "generatedAtUtc": "2026-10-12T10:36:23.028Z",
+  "scenario": "PERSISTED_TRIGGER_COMMIT_THEN_TIMEOUT_RECOVERY",
   "result": "PASS",
-  "injectedFailure": "TIMEOUT after SQLite commit; deterministic test fixture",
-  "model": "scripted deterministic fixture; not a live model call",
+  "quoteSource": "TEST_FIXTURE",
+  "injectedFailure": "scripted post-commit timeout fixture; no external venue call",
+  "modelBehavior": "SCRIPTED_MODEL_FIXTURE selects read-only diagnostics; not live model inference",
   "selectedDiagnostics": ["read_attempt_journal", "query_order_by_client_id"],
-  "recovery": {
-    "result": "VERIFIED",
-    "needsHuman": false,
-    "escalationPersisted": false,
-    "tracingHealthy": true,
-    "diagnosticTools": ["read_attempt_journal", "query_order_by_client_id"],
-    "checks": {
-      "orderMatchesClientId": true,
-      "attemptMatchesOrder": true,
-      "exactlyOneOrder": true,
-      "acceptedIsNotFilled": true
-    },
-    "evidenceIds": ["0cbb4cb9-945b-4def-91e9-741d64fda7c4"]
+  "runtimeResult": {
+    "quoteKind": "TEST_FIXTURE",
+    "quoteEvidenceId": "fixture-quote-scripted-proof-fixture",
+    "plans": [
+      {
+        "planId": "proof-c-commit-timeout",
+        "outcome": "ARMED",
+        "planState": "ARMED"
+      },
+      {
+        "planId": "proof-c-commit-timeout",
+        "outcome": "RECOVERED",
+        "planState": "OPEN",
+        "verification": {
+          "result": "VERIFIED",
+          "needsHuman": false,
+          "escalationPersisted": false,
+          "tracingHealthy": true,
+          "diagnosticTools": [
+            "read_attempt_journal",
+            "query_order_by_client_id"
+          ],
+          "checks": {
+            "PLAN_HASH_MATCHES": true,
+            "PLAN_APPROVED": true,
+            "OWNER_AUTHORIZATION_MATCHES": true,
+            "PLAN_NOT_EXPIRED_AT_SUBMISSION": true,
+            "ORDER_ATTEMPT_UNIQUE": true,
+            "ORDER_REQUEST_MATCHES_PLAN": true,
+            "EXECUTION_STATUS_MATCHES": true,
+            "CANCELLATION_STATE_MATCHES": true,
+            "PAPER_EVIDENCE_ONLY": true
+          },
+          "evidenceIds": [
+            "proof-c-commit-timeout",
+            "90f27c11-4c7a-4252-a2a8-9adb7d6b44ef",
+            "9b3ae635-4d33-4338-bf7f-2eb3fbb323bc",
+            "bd56e885-e2f7-4f70-b46d-0fabf3f06989"
+          ]
+        },
+        "orderStatus": "NEW"
+      }
+    ]
   },
-  "independentReadback": {
+  "persistedPlanState": "OPEN",
+  "persistedOrder": {
+    "orderId": "bd56e885-e2f7-4f70-b46d-0fabf3f06989",
+    "planId": "proof-c-commit-timeout",
+    "clientOrderId": "nightorder-proof-c-commit-timeout",
+    "symbol": "BTCUSDT",
+    "side": "BUY",
+    "quantity": "0.00833333",
+    "limitPrice": "60000",
+    "status": "NEW",
+    "filledQuantity": "0",
+    "createdAtUtc": "2026-10-10T12:00:00.000Z",
+    "updatedAtUtc": "2026-10-10T12:00:00.000Z",
+    "requestDigest": "c8acd04bcfdd89289d765773be0255b92490186e89e1d8c82db8d0d9d9cf24c2"
+  },
+  "independentVerifier": {
     "result": "VERIFIED",
     "checks": {
-      "orderMatchesClientId": true,
-      "attemptMatchesOrder": true,
-      "exactlyOneOrder": true,
-      "acceptedIsNotFilled": true
+      "PLAN_HASH_MATCHES": true,
+      "PLAN_APPROVED": true,
+      "OWNER_AUTHORIZATION_MATCHES": true,
+      "PLAN_NOT_EXPIRED_AT_SUBMISSION": true,
+      "ORDER_ATTEMPT_UNIQUE": true,
+      "ORDER_REQUEST_MATCHES_PLAN": true,
+      "EXECUTION_STATUS_MATCHES": true,
+      "CANCELLATION_STATE_MATCHES": true,
+      "PAPER_EVIDENCE_ONLY": true
     },
-    "evidenceIds": ["0cbb4cb9-945b-4def-91e9-741d64fda7c4"]
+    "evidenceIds": [
+      "proof-c-commit-timeout",
+      "90f27c11-4c7a-4252-a2a8-9adb7d6b44ef",
+      "9b3ae635-4d33-4338-bf7f-2eb3fbb323bc",
+      "bd56e885-e2f7-4f70-b46d-0fabf3f06989"
+    ]
   },
-  "independentVerifier": "local journal readback; the standalone verifier package is not integrated",
   "actualOrderCount": 1,
-  "inMemoryTraceEventNames": [
+  "traceEvents": [
     "agent.recovery.started",
     "agent.tool.selected",
     "agent.tool.completed",

@@ -1,0 +1,23 @@
+{
+  "name": "@nightorder/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --root ../.. packages/runtime/src/index.test.ts"
+  },
+  "dependencies": {
+    "@nightorder/agent": "workspace:*",
+    "@nightorder/domain": "workspace:*",
+    "@nightorder/execution": "workspace:*",
+    "@nightorder/quotes": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}
